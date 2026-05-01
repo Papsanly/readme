@@ -39,13 +39,14 @@ mvp uses teacher vlm directly via api. distillation comes after.
 
 # post-mvp (3 weeks, 18.05 - 07.06)
 
-distillation as academic core + cram as many 1.x features as possible.
-distillation runs in parallel (training is mostly waiting).
+distillation as academic core + cram as many 1.x features as possible. distillation runs in parallel
+(training is mostly waiting).
 
 ## week 4 (until 24.05): distillation kickoff + formats
 
 - collect ~50-100 pdfs (mix: textbooks, fiction, scanned, articles)
-- generate dataset: pdf pages -> teacher output (~5-10k pairs) and potentially if there is time some manual cleanup
+- generate dataset: pdf pages -> teacher output (~5-10k pairs) and potentially if there is time some
+  manual cleanup
 - pick student (qwen2.5-vl-3b / phi-3-vision / smolvlm)
 - training pipeline (lora, hf trainer, colab/runpod gpu)
 - 1.x: more formats (doc, docx, html, epub via converters to pdf/images)
@@ -94,8 +95,10 @@ write in parallel with product if possible, but main block here.
 
 # risks
 
-- **scope too big**: 1.x has 7+ features in 3 weeks - expect to drop some. priority: distillation > original view > offline > formats > the rest
-- **distillation fails / bad metrics**: fallback - keep teacher api in production, present distillation as research with honest results or leave as a choice for a user
+- **scope too big**: 1.x has 7+ features in 3 weeks - expect to drop some. priority: distillation >
+  original view > offline > formats > the rest
+- **distillation fails / bad metrics**: fallback - keep teacher api in production, present
+  distillation as research with honest results or leave as a choice for a user
 - **mobile stack learning curve**: pick what you know; if unsure - react native expo (fastest)
 - **dataset generation cost**: cap teacher api spend, batch requests
 
