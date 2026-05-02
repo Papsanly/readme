@@ -5,12 +5,5 @@ const eslintPluginPrettierRecommended = require('eslint-plugin-prettier/recommen
 module.exports = defineConfig([
   expoConfig,
   eslintPluginPrettierRecommended,
-  {
-    settings: {
-      'import/resolver': {
-        typescript: { project: './tsconfig.json' }
-      }
-    }
-  },
   { ignores: ['dist/*'] }
 ]);
