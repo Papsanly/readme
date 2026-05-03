@@ -5,6 +5,7 @@ import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { PdfRendererHost } from '@/src/components/pdf/PdfRenderer';
 import { useTheme } from '@/src/hooks/useTheme';
 
 export default function RootLayout() {
@@ -34,6 +35,7 @@ export default function RootLayout() {
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         </Stack>
+        <PdfRendererHost />
       </SafeAreaProvider>
     </GestureHandlerRootView>
   );
