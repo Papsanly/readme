@@ -4,13 +4,12 @@
   "version": "1.0.0",
   "scripts": {
     "start": "expo start",
-    "reset-project": "node ./scripts/reset-project.js",
     "android": "expo run:android",
     "ios": "expo run:ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "format": "prettier \"!pnpm-lock.yaml\" \"!benches\" --write .",
-    "format:check": "prettier \"!pnpm-lock.yaml\" \"!benches\" --check ."
+    "format": "prettier \"!pnpm-lock.yaml\" --write .",
+    "format:check": "prettier \"!pnpm-lock.yaml\" --check ."
   },
   "dependencies": {
     "@expo/vector-icons": "^15.0.3",
