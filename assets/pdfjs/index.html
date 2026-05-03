@@ -1,0 +1,190 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>pdf-renderer</title>
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background: #fff;
+      }
+      #status {
+        font-family: -apple-system, system-ui, sans-serif;
+        font-size: 12px;
+        color: #888;
+        padding: 4px;
+      }
+      #canvas {
+        display: block;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="status">idle</div>
+    <canvas id="canvas"></canvas>
+
+    <!-- pdf.js library bytes are inlined by the host at WebView mount time. -->
+    <script type="text/plain" id="pdfjs-lib">/*__PDFJS_LIB__*/</script>
+    <!-- pdf.js worker bytes are inlined by the host at WebView mount time. -->
+    <script type="text/plain" id="pdfjs-worker">/*__PDFJS_WORKER__*/</script>
+
+    <script>
+      (function () {
+        'use strict';
+
+        var status = document.getElementById('status');
+        var canvas = document.getElementById('canvas');
+        var ctx = canvas.getContext('2d', { alpha: false });
+        var pdfjs = null;
+        var workerBlobUrl = null;
+        var initPromise = null;
+
+        function setStatus(s) {
+          status.textContent = s;
+        }
+
+        function send(payload) {
+          var rn = window.ReactNativeWebView;
+          if (rn && typeof rn.postMessage === 'function') {
+            rn.postMessage(JSON.stringify(payload));
+          }
+        }
+
+        function fail(message, cause) {
+          var detail = message;
+          if (cause && cause.message) detail += ': ' + cause.message;
+          setStatus('error');
+          send({ type: 'error', message: detail });
+        }
+
+        function readScriptText(id) {
+          var node = document.getElementById(id);
+          if (!node) throw new Error('missing inline script: ' + id);
+          var text = node.textContent || '';
+          if (text.length === 0) throw new Error('empty inline script: ' + id);
+          return text;
+        }
+
+        function ensurePdfJs() {
+          if (initPromise) return initPromise;
+          initPromise = (function () {
+            try {
+              var libCode = readScriptText('pdfjs-lib');
+              var workerCode = readScriptText('pdfjs-worker');
+              var libBlob = new Blob([libCode], { type: 'text/javascript' });
+              var libUrl = URL.createObjectURL(libBlob);
+              var workerBlob = new Blob([workerCode], { type: 'text/javascript' });
+              workerBlobUrl = URL.createObjectURL(workerBlob);
+              return import(libUrl).then(function (mod) {
+                pdfjs = mod;
+                if (pdfjs && pdfjs.GlobalWorkerOptions) {
+                  pdfjs.GlobalWorkerOptions.workerSrc = workerBlobUrl;
+                }
+                return pdfjs;
+              });
+            } catch (err) {
+              return Promise.reject(err);
+            }
+          })();
+          return initPromise;
+        }
+
+        function base64ToBytes(b64) {
+          var binary = atob(b64);
+          var len = binary.length;
+          var bytes = new Uint8Array(len);
+          for (var i = 0; i < len; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+          }
+          return bytes;
+        }
+
+        function renderJob(message) {
+          var pdfBase64 = message.pdfBase64;
+          var scale = typeof message.scale === 'number' && message.scale > 0 ? message.scale : 2;
+
+          if (typeof pdfBase64 !== 'string' || pdfBase64.length === 0) {
+            fail('init message missing pdfBase64');
+            return;
+          }
+
+          ensurePdfJs()
+            .then(function (lib) {
+              var bytes = base64ToBytes(pdfBase64);
+              var loadingTask = lib.getDocument({ data: bytes, isEvalSupported: false });
+              return loadingTask.promise;
+            })
+            .then(function (pdf) {
+              var total = pdf.numPages;
+              setStatus('rendering 0/' + total);
+              var chain = Promise.resolve();
+              for (var pageNumber = 1; pageNumber <= total; pageNumber += 1) {
+                (function (n) {
+                  chain = chain.then(function () {
+                    return pdf.getPage(n).then(function (page) {
+                      var viewport = page.getViewport({ scale: scale });
+                      canvas.width = Math.ceil(viewport.width);
+                      canvas.height = Math.ceil(viewport.height);
+                      ctx.fillStyle = '#ffffff';
+                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+                      return page
+                        .render({ canvasContext: ctx, viewport: viewport, canvas: canvas })
+                        .promise.then(function () {
+                          var dataUrl = canvas.toDataURL('image/png');
+                          send({ type: 'page', pageNumber: n, total: total, dataUrl: dataUrl });
+                          setStatus('rendering ' + n + '/' + total);
+                          page.cleanup();
+                        });
+                    });
+                  });
+                })(pageNumber);
+              }
+              return chain.then(function () {
+                setStatus('done ' + total);
+                send({ type: 'done', total: total });
+                return pdf.cleanup().catch(function () {});
+              });
+            })
+            .catch(function (err) {
+              fail('render failed', err);
+            });
+        }
+
+        function handleMessage(raw) {
+          var data;
+          try {
+            data = JSON.parse(raw);
+          } catch (err) {
+            fail('failed to parse host message', err);
+            return;
+          }
+          if (!data || data.type !== 'init') {
+            fail('unexpected message type: ' + (data && data.type));
+            return;
+          }
+          renderJob(data);
+        }
+
+        // RN posts via `webview.postMessage(str)`, which arrives differently
+        // on iOS (document) vs Android (window).
+        document.addEventListener('message', function (e) {
+          handleMessage(e.data);
+        });
+        window.addEventListener('message', function (e) {
+          handleMessage(e.data);
+        });
+
+        // Eagerly bootstrap pdf.js so the first job has it warm.
+        ensurePdfJs().catch(function (err) {
+          fail('pdfjs bootstrap failed', err);
+        });
+
+        send({ type: 'ready' });
+        setStatus('ready');
+      })();
+    </script>
+  </body>
+</html>
