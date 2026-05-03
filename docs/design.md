@@ -9,9 +9,8 @@ technologies to reach this goal.
 like outline, footnotes or even page numbers. some apps don't do any tts normalization before trying
 to synthesize. this is especially bad for pdf-scan documents. this makes the output unlistenable.
 this project aims to fix this, using a combination of technics like reading classifier and tts
-normalization. also, we just tested some pdfs, easy to read for human readers, but for some
-reason many such apps unable to resonably parse or read the content. even while claiming that
-they can.
+normalization. also, we just tested some pdfs, easy to read for human readers, but for some reason
+many such apps unable to resonably parse or read the content. even while claiming that they can.
 
 # mvp
 
