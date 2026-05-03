@@ -34,6 +34,17 @@ export default function RootLayout() {
           }}
         >
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+          <Stack.Screen name="player/[id]" options={{ headerShown: false }} />
+          <Stack.Screen
+            name="upload/[id]"
+            options={{ presentation: 'modal', headerShown: false }}
+          />
+          <Stack.Screen name="settings/voice" options={{ headerShown: true, title: 'Voice' }} />
+          <Stack.Screen
+            name="settings/skipping"
+            options={{ headerShown: true, title: 'Block skipping' }}
+          />
+          <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
         </Stack>
         <PdfRendererHost />
       </SafeAreaProvider>
