@@ -14,11 +14,14 @@ import {
 const PDFJS_LIB_PLACEHOLDER = '/*__PDFJS_LIB__*/';
 const PDFJS_WORKER_PLACEHOLDER = '/*__PDFJS_WORKER__*/';
 
+// pdf.js library + worker are vendored as `.txt` so Metro never tries to parse
+// them as source — they are read at runtime via `expo-asset` and inlined into
+// the WebView shell HTML.
 const HTML_MODULE = require('../../../assets/pdfjs/index.html');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const PDFJS_LIB_MODULE = require('../../../assets/pdfjs/pdf.min.mjs');
+const PDFJS_LIB_MODULE = require('../../../assets/pdfjs/pdf.min.mjs.txt');
 // eslint-disable-next-line @typescript-eslint/no-require-imports
-const PDFJS_WORKER_MODULE = require('../../../assets/pdfjs/pdf.worker.min.mjs');
+const PDFJS_WORKER_MODULE = require('../../../assets/pdfjs/pdf.worker.min.mjs.txt');
 
 type GuestPageMessage = {
   type: 'page';
