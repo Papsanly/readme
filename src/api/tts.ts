@@ -69,15 +69,35 @@ class ElevenLabsTtsAdapter implements TtsClient {
   }
 }
 
-let cachedLocalClient: OpenAiCompatibleTtsClient | undefined;
+/**
+ * Wraps `OpenAiCompatibleTtsClient` and *discards* the caller's `voiceId`.
+ * The audio engine passes through the voice id stored in settings (which is
+ * an ElevenLabs voice id), and forwarding that to openedai-speech makes it
+ * fail with `Error loading voice: <id>`. The local server has its own voice
+ * baked into the client config, so we always use that.
+ */
+class LocalTtsAdapter implements TtsClient {
+  constructor(private readonly inner: OpenAiCompatibleTtsClient) {}
+
+  async synthesize(opts: TtsSynthesizeOptions): Promise<Uint8Array> {
+    return this.inner.synthesize({
+      text: opts.text,
+      voiceSettings: opts.voiceSettings
+    });
+  }
+}
+
+let cachedLocalClient: TtsClient | undefined;
 
 function getLocalClient(): TtsClient {
   if (!cachedLocalClient) {
-    cachedLocalClient = new OpenAiCompatibleTtsClient({
-      baseUrl: DEFAULT_LOCAL_TTS_URL,
-      defaultVoice: DEFAULT_LOCAL_TTS_VOICE,
-      defaultModel: DEFAULT_LOCAL_TTS_MODEL
-    });
+    cachedLocalClient = new LocalTtsAdapter(
+      new OpenAiCompatibleTtsClient({
+        baseUrl: DEFAULT_LOCAL_TTS_URL,
+        defaultVoice: DEFAULT_LOCAL_TTS_VOICE,
+        defaultModel: DEFAULT_LOCAL_TTS_MODEL
+      })
+    );
   }
   return cachedLocalClient;
 }
