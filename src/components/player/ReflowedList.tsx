@@ -8,7 +8,8 @@ import type { SkippingMode } from '@/src/types/settings';
 import { BlockItem } from './BlockItem';
 
 const VIEW_POSITION = 0.3;
-const SCROLL_RETRY_MS = 80;
+/** Rough height-per-item used for the one-shot initial offset jump. */
+const ESTIMATED_ITEM_HEIGHT = 110;
 
 export type ReflowedListProps = {
   blocks: readonly Block[];
@@ -42,42 +43,67 @@ export function ReflowedList({
 }: ReflowedListProps) {
   const { spacing } = useTheme();
   const listRef = useRef<FlatList<Block>>(null);
+  /**
+   * Whether we've already performed the one-shot "land near the saved
+   * block" jump. Subsequent scrolls are smooth, in-window animations driven
+   * by `currentIndex` changes. Without this gate, every streaming append
+   * (which grows `blocks.length`) re-triggered the auto-scroll, producing
+   * the visible judder when opening a book.
+   */
+  const initialJumpDoneRef = useRef(false);
 
-  const scrollToCurrent = useCallback(
-    (index: number, animated: boolean) => {
-      const list = listRef.current;
-      if (!list) return;
-      if (index < 0 || index >= blocks.length) return;
-      try {
-        list.scrollToIndex({ index, viewPosition: VIEW_POSITION, animated });
-      } catch (err) {
-        // FlatList throws synchronously when the index isn't yet measured.
-        // The `onScrollToIndexFailed` handler below will retry.
-        console.warn('[player] scrollToIndex threw', err);
-      }
-    },
-    [blocks.length]
-  );
-
-  // Auto-scroll when the current block changes (and on first mount once data is present).
+  // Smooth in-session scroll: only after the initial jump is done, and only
+  // when the current index changes (not when streaming appends new blocks).
   useEffect(() => {
-    if (currentIndex < 0) return;
-    if (blocks.length === 0) return;
-    // Defer until after layout so item heights have been measured.
-    const id = requestAnimationFrame(() => scrollToCurrent(currentIndex, true));
+    if (!initialJumpDoneRef.current) return;
+    if (currentIndex < 0 || currentIndex >= blocks.length) return;
+    const list = listRef.current;
+    if (!list) return;
+    const id = requestAnimationFrame(() => {
+      try {
+        list.scrollToIndex({ index: currentIndex, viewPosition: VIEW_POSITION, animated: true });
+      } catch {
+        // Silently ignore — the next currentIndex change will try again.
+      }
+    });
     return () => cancelAnimationFrame(id);
-  }, [currentIndex, blocks.length, scrollToCurrent]);
+  }, [currentIndex, blocks.length]);
+
+  // One-shot initial jump. As soon as `blocks` has enough entries to contain
+  // the saved index, scroll there *without animation* so the user doesn't see
+  // the list scrolling past every block on its way down.
+  useEffect(() => {
+    if (initialJumpDoneRef.current) return;
+    if (currentIndex <= 0) {
+      // No saved position past the top — nothing to jump to.
+      initialJumpDoneRef.current = true;
+      return;
+    }
+    if (blocks.length <= currentIndex) return;
+    const list = listRef.current;
+    if (!list) return;
+    initialJumpDoneRef.current = true;
+    // `scrollToOffset` with an estimated item height avoids the
+    // scrollToIndex retry loop (and its visible mid-jumps) when items
+    // haven't been measured yet.
+    list.scrollToOffset({
+      offset: Math.max(0, ESTIMATED_ITEM_HEIGHT * currentIndex),
+      animated: false
+    });
+  }, [blocks.length, currentIndex]);
 
   const handleScrollToIndexFailed = useCallback(
     (info: { index: number; highestMeasuredFrameIndex: number; averageItemLength: number }) => {
       const list = listRef.current;
       if (!list) return;
-      // First, get into the neighborhood — then re-attempt the centered scroll.
-      const offset = Math.max(0, info.averageItemLength * info.index);
-      list.scrollToOffset({ offset, animated: false });
-      setTimeout(() => scrollToCurrent(info.index, true), SCROLL_RETRY_MS);
+      // Soft fallback: drop into the rough neighborhood without animation,
+      // and don't retry — retry loops are what cause the flicker.
+      list.scrollToOffset({
+        offset: Math.max(0, info.averageItemLength * info.index),
+        animated: false
+      });
     },
-    [scrollToCurrent]
+    []
   );
 
   const renderItem = useCallback<ListRenderItem<Block>>(

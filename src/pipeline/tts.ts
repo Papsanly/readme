@@ -1,4 +1,4 @@
-import { ElevenLabsClient, getDefaultElevenLabsClient } from '@/src/api/elevenlabs';
+import { getTtsClient, type TtsClient } from '@/src/api/tts';
 import {
   clearBookAudio,
   getCachedAudioPath,
@@ -13,7 +13,8 @@ export type SynthesizeBlockOptions = {
   bookId: string;
   blockId: string;
   text: string;
-  voiceId: string;
+  /** Voice id from the ElevenLabs picker; ignored when the OpenAI provider is active. */
+  voiceId?: string;
   voiceSettings?: VoiceSettings;
   /** Bypass the cache and re-synthesize even if a file already exists. */
   force?: boolean;
@@ -31,8 +32,8 @@ export type PrefetchOptions = {
   signal?: AbortSignal;
 };
 
-function resolveClient(client?: ElevenLabsClient): ElevenLabsClient {
-  return client ?? getDefaultElevenLabsClient();
+function resolveClient(client?: TtsClient): TtsClient {
+  return client ?? getTtsClient();
 }
 
 /**
@@ -41,7 +42,7 @@ function resolveClient(client?: ElevenLabsClient): ElevenLabsClient {
  */
 export async function synthesizeBlockToFile(
   opts: SynthesizeBlockOptions,
-  client?: ElevenLabsClient
+  client?: TtsClient
 ): Promise<{ uri: string; cached: boolean }> {
   const { bookId, blockId, text, voiceId, voiceSettings, force } = opts;
   const uri = getCachedAudioPath(bookId, blockId);
@@ -62,7 +63,7 @@ export async function synthesizeBlockToFile(
 /** Same as `synthesizeBlockToFile` but returns just the on-disk uri. */
 export async function ensureBlockAudio(
   opts: SynthesizeBlockOptions,
-  client?: ElevenLabsClient
+  client?: TtsClient
 ): Promise<string> {
   const { uri } = await synthesizeBlockToFile(opts, client);
   return uri;
@@ -75,10 +76,10 @@ export async function ensureBlockAudio(
 export async function prefetchBlocks(
   bookId: string,
   items: PrefetchItem[],
-  voiceId: string,
+  voiceId: string | undefined,
   voiceSettings?: VoiceSettings,
   opts: PrefetchOptions = {},
-  client?: ElevenLabsClient
+  client?: TtsClient
 ): Promise<void> {
   if (items.length === 0) return;
 

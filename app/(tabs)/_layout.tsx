@@ -10,9 +10,10 @@ export default function TabsLayout() {
   return (
     <Tabs
       screenOptions={{
-        headerStyle: { backgroundColor: colors.bg },
-        headerTintColor: colors.text,
-        headerShadowVisible: false,
+        // Each tab screen renders its own in-content title (Library, Upload,
+        // Settings), so hiding the navigator header avoids the duplicate
+        // title bar that otherwise stacks on top.
+        headerShown: false,
         tabBarStyle: {
           backgroundColor: colors.bg,
           borderTopColor: colors.border,

@@ -1,4 +1,6 @@
+import Ionicons from '@expo/vector-icons/Ionicons';
 import { setAudioModeAsync } from 'expo-audio';
+import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -10,6 +12,10 @@ import { useTheme } from '@/src/hooks/useTheme';
 
 export default function RootLayout() {
   const { colors, scheme } = useTheme();
+
+  // Bundles the Ionicons TTF on web/Android so glyphs render — on iOS the icon
+  // layer falls back to SF Symbols and never reads from this font.
+  useFonts(Ionicons.font);
 
   useEffect(() => {
     setAudioModeAsync({
@@ -43,6 +49,10 @@ export default function RootLayout() {
           <Stack.Screen
             name="settings/skipping"
             options={{ headerShown: true, title: 'Block skipping' }}
+          />
+          <Stack.Screen
+            name="settings/tts-provider"
+            options={{ headerShown: true, title: 'TTS provider' }}
           />
           <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
         </Stack>

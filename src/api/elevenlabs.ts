@@ -11,6 +11,37 @@ const ERROR_BODY_TRUNCATION = 1_000;
 const SPEED_MIN = 0.7;
 const SPEED_MAX = 1.2;
 
+/**
+ * Maximum concurrent TTS requests across the entire app. ElevenLabs free
+ * tiers cap concurrent requests at 3; we limit ourselves to 2 to leave one
+ * slot of headroom for retries and to avoid 429 `concurrent_limit_exceeded`
+ * errors during streaming playback.
+ */
+const TTS_MAX_CONCURRENCY = 2;
+
+let ttsInFlight = 0;
+const ttsWaiters: (() => void)[] = [];
+
+function acquireTtsSlot(): Promise<void> {
+  return new Promise<void>(resolve => {
+    const tryAcquire = (): void => {
+      if (ttsInFlight < TTS_MAX_CONCURRENCY) {
+        ttsInFlight += 1;
+        resolve();
+        return;
+      }
+      ttsWaiters.push(tryAcquire);
+    };
+    tryAcquire();
+  });
+}
+
+function releaseTtsSlot(): void {
+  ttsInFlight -= 1;
+  const next = ttsWaiters.shift();
+  if (next) next();
+}
+
 /** Thrown when no ElevenLabs API key is configured. */
 export class MissingElevenLabsKeyError extends Error {
   constructor(message = 'EXPO_PUBLIC_ELEVENLABS_API_KEY is not set') {
@@ -211,61 +242,73 @@ export class ElevenLabsClient {
     return page;
   }
 
-  /** Synthesize `text` to MP3 bytes using the streaming TTS endpoint, buffered to completion. */
+  /**
+   * Synthesize `text` to MP3 bytes using the streaming TTS endpoint, buffered
+   * to completion. Gated by a process-wide semaphore (`TTS_MAX_CONCURRENCY`)
+   * so that current-block synth, prefetch, and voice preview never together
+   * exceed ElevenLabs' concurrent-request limit.
+   */
   async synthesize(opts: SynthesizeOptions): Promise<Uint8Array> {
     const { voiceId, text } = opts;
     if (!voiceId) throw new ElevenLabsError('synthesize: voiceId is required');
     if (!text) throw new ElevenLabsError('synthesize: text is required');
 
-    const url =
-      `${this.baseUrl}/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream` +
-      `?output_format=${DEFAULT_OUTPUT_FORMAT}`;
-
-    const body: Record<string, unknown> = {
-      text,
-      model_id: this.modelId
-    };
-    const settings = mapVoiceSettings(opts.voiceSettings);
-    if (settings) body.voice_settings = settings;
-
-    const response = await this.fetchWithTimeout(url, {
-      method: 'POST',
-      headers: {
-        'xi-api-key': this.apiKey,
-        'content-type': 'application/json',
-        accept: 'audio/mpeg'
-      },
-      body: JSON.stringify(body)
-    });
-
-    if (!response.ok) {
-      // Body is most likely a JSON/text error description here, not audio.
-      let errorBody = '';
-      try {
-        errorBody = await response.text();
-      } catch {
-        // Ignore — we'll just report status.
-      }
-      throw new ElevenLabsError(
-        `ElevenLabs TTS returned HTTP ${response.status}: ${truncate(errorBody, ERROR_BODY_TRUNCATION)}`,
-        { status: response.status }
-      );
-    }
-
-    let buffer: ArrayBuffer;
+    await acquireTtsSlot();
     try {
-      buffer = await response.arrayBuffer();
-    } catch (err) {
-      throw new ElevenLabsError('ElevenLabs TTS response body could not be read', { cause: err });
-    }
+      const url =
+        `${this.baseUrl}/v1/text-to-speech/${encodeURIComponent(voiceId)}/stream` +
+        `?output_format=${DEFAULT_OUTPUT_FORMAT}`;
 
-    const bytes = new Uint8Array(buffer);
-    if (bytes.byteLength === 0) {
-      throw new ElevenLabsError('ElevenLabs TTS returned an empty audio body', {
-        status: response.status
+      const body: Record<string, unknown> = {
+        text,
+        model_id: this.modelId
+      };
+      const settings = mapVoiceSettings(opts.voiceSettings);
+      if (settings) body.voice_settings = settings;
+
+      const response = await this.fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': this.apiKey,
+          'content-type': 'application/json',
+          accept: 'audio/mpeg'
+        },
+        body: JSON.stringify(body)
       });
+
+      if (!response.ok) {
+        // Body is most likely a JSON/text error description here, not audio.
+        let errorBody = '';
+        try {
+          errorBody = await response.text();
+        } catch {
+          // Ignore — we'll just report status.
+        }
+        throw new ElevenLabsError(
+          `ElevenLabs TTS returned HTTP ${response.status}: ${truncate(errorBody, ERROR_BODY_TRUNCATION)}`,
+          { status: response.status }
+        );
+      }
+
+      let buffer: ArrayBuffer;
+      try {
+        buffer = await response.arrayBuffer();
+      } catch (err) {
+        throw new ElevenLabsError('ElevenLabs TTS response body could not be read', {
+          cause: err
+        });
+      }
+
+      const bytes = new Uint8Array(buffer);
+      if (bytes.byteLength === 0) {
+        throw new ElevenLabsError('ElevenLabs TTS returned an empty audio body', {
+          status: response.status
+        });
+      }
+      return bytes;
+    } finally {
+      releaseTtsSlot();
     }
-    return bytes;
   }
 
   private async fetchWithTimeout(url: string, init: RequestInit): Promise<Response> {

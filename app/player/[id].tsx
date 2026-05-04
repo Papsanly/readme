@@ -1,7 +1,6 @@
 import * as Haptics from 'expo-haptics';
-import { Image } from 'expo-image';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -15,8 +14,6 @@ import { useSettingsStore } from '@/src/state/settings';
 import type { Book } from '@/src/types/book';
 
 const HEADER_BUTTON_SIZE = 36;
-const COVER_WIDTH = 200;
-const COVER_HEIGHT = 280;
 const SPEED_CYCLE = [0.85, 1.0, 1.15, 1.3] as const;
 const CONTROLS_INSET = 220;
 
@@ -55,7 +52,7 @@ export default function PlayerScreen() {
 }
 
 function ReadyScreen({ book }: { book: Book }) {
-  const { colors, spacing, fontSize, fontWeight } = useTheme();
+  const { colors } = useTheme();
   const speed = useSettingsStore(s => s.speed);
   const skipping = useSettingsStore(s => s.skipping);
   const voiceName = useSettingsStore(s => s.voiceName);
@@ -125,43 +122,17 @@ function ReadyScreen({ book }: { book: Book }) {
     );
   } else {
     body = (
-      <>
-        <View style={[styles.hero, { paddingHorizontal: spacing.lg, paddingTop: spacing.md }]}>
-          <BookCover coverUri={book.coverUri} />
-          <Text
-            style={{
-              color: colors.text,
-              fontSize: fontSize.h2,
-              fontWeight: fontWeight.semibold,
-              textAlign: 'center',
-              marginTop: spacing.md
-            }}
-            numberOfLines={2}
-          >
-            {book.title}
-          </Text>
-          <Text
-            style={{
-              color: colors.textMuted,
-              fontSize: fontSize.body,
-              marginTop: spacing.xs
-            }}
-          >
-            Block {safeIndex + 1} of {totalBlocks}
-          </Text>
-        </View>
-        <View style={styles.list}>
-          <ReflowedList
-            blocks={blocks}
-            currentIndex={safeIndex}
-            skipping={skipping}
-            erroredIndex={erroredIndex}
-            onSelect={handleSelectBlock}
-            onRetry={handleRetryBlock}
-            bottomInset={CONTROLS_INSET}
-          />
-        </View>
-      </>
+      <View style={styles.list}>
+        <ReflowedList
+          blocks={blocks}
+          currentIndex={safeIndex}
+          skipping={skipping}
+          erroredIndex={erroredIndex}
+          onSelect={handleSelectBlock}
+          onRetry={handleRetryBlock}
+          bottomInset={CONTROLS_INSET}
+        />
+      </View>
     );
   }
 
@@ -254,40 +225,6 @@ function PlayerHeader({ title }: { title: string }) {
         {title}
       </Text>
       <View style={{ width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE }} />
-    </View>
-  );
-}
-
-function BookCover({ coverUri }: { coverUri?: string }) {
-  const { colors, radius } = useTheme();
-  const [failed, setFailed] = useState(false);
-  const placeholder = !coverUri || failed;
-
-  return (
-    <View
-      style={[
-        styles.cover,
-        {
-          width: COVER_WIDTH,
-          height: COVER_HEIGHT,
-          borderRadius: radius.lg,
-          backgroundColor: colors.bgElevated
-        }
-      ]}
-    >
-      {placeholder ? (
-        <IconSymbol name="book" size={48} color={colors.textMuted} />
-      ) : (
-        <Image
-          source={{ uri: coverUri }}
-          style={styles.coverImage}
-          contentFit="cover"
-          transition={200}
-          cachePolicy="memory-disk"
-          onError={() => setFailed(true)}
-          accessibilityIgnoresInvertColors
-        />
-      )}
     </View>
   );
 }
@@ -399,13 +336,6 @@ const styles = StyleSheet.create({
   headerButton: { alignItems: 'center', justifyContent: 'center' },
   headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8 },
   body: { flex: 1 },
-  hero: { alignItems: 'center' },
-  cover: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden'
-  },
-  coverImage: { width: '100%', height: '100%' },
   list: { flex: 1, marginTop: 8 },
   processing: { flex: 1, alignItems: 'stretch', justifyContent: 'center' }
 });

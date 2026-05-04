@@ -5,7 +5,7 @@ import { SectionHeader } from '@/src/components/settings';
 import { IconSymbol, ListItem, Screen } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/useTheme';
 import { useSettingsStore } from '@/src/state/settings';
-import type { SkippingMode } from '@/src/types/settings';
+import type { SkippingMode, TtsProvider } from '@/src/types/settings';
 
 const SKIPPING_LABELS: Record<SkippingMode, string> = {
   'main-only': 'Main content only',
@@ -13,13 +13,20 @@ const SKIPPING_LABELS: Record<SkippingMode, string> = {
   none: 'Read everything'
 };
 
+const PROVIDER_LABELS: Record<TtsProvider, string> = {
+  elevenlabs: 'ElevenLabs',
+  local: 'Local server'
+};
+
 export default function SettingsScreen() {
   const { colors, spacing, fontSize, fontWeight } = useTheme();
   const voiceName = useSettingsStore(s => s.voiceName);
   const skipping = useSettingsStore(s => s.skipping);
+  const ttsProvider = useSettingsStore(s => s.ttsProvider);
 
   const goVoice = () => router.push('/settings/voice' as Href);
   const goSkipping = () => router.push('/settings/skipping' as Href);
+  const goTtsProvider = () => router.push('/settings/tts-provider' as Href);
   const goAbout = () => router.push('/settings/about' as Href);
 
   return (
@@ -44,10 +51,17 @@ export default function SettingsScreen() {
       <SectionHeader title="Audio" />
       <View style={{ backgroundColor: colors.bgElevated }}>
         <ListItem
-          title="Voice"
-          right={<RightValue value={voiceName ?? 'Default'} />}
-          onPress={goVoice}
+          title="TTS provider"
+          right={<RightValue value={PROVIDER_LABELS[ttsProvider]} />}
+          onPress={goTtsProvider}
         />
+        {ttsProvider === 'elevenlabs' ? (
+          <ListItem
+            title="Voice"
+            right={<RightValue value={voiceName ?? 'Default'} />}
+            onPress={goVoice}
+          />
+        ) : null}
         <ListItem
           title="Block skipping"
           right={<RightValue value={SKIPPING_LABELS[skipping]} />}

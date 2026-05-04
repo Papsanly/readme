@@ -101,6 +101,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   const voiceId = useSettingsStore(s => s.voiceId);
   const speed = useSettingsStore(s => s.speed);
   const skipping = useSettingsStore(s => s.skipping);
+  const ttsProvider = useSettingsStore(s => s.ttsProvider);
 
   // ----- Local state ------------------------------------------------------
   const [isReady, setIsReady] = useState(false);
@@ -115,11 +116,26 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   const prefetchAbortRef = useRef<AbortController | null>(null);
   const lastTtsSpeedRef = useRef<number>(clampTtsSpeed(speed));
   const lastVoiceIdRef = useRef<string | undefined>(voiceId);
+  /**
+   * `true` while we've fired the finish-handler for the current source and
+   * haven't yet swapped in the next source. While this is set, all
+   * `didJustFinish` status updates are ignored — `expo-audio` can deliver
+   * several of them in a row from the old source before the `replace` swap
+   * actually takes effect, and without this gate each one would advance the
+   * index again (the "skips every other block" symptom).
+   */
+  const transitioningRef = useRef(false);
   /** When `cacheEpoch` increments, the current-block effect re-runs even if index is unchanged. */
   const [cacheEpoch, setCacheEpoch] = useState(0);
 
   const safeIndex =
     blocks.length > 0 ? Math.min(Math.max(currentBlockIndex, 0), blocks.length - 1) : -1;
+  // Track the *identity* of the current block separately from the array so the
+  // current-block load effect doesn't re-run (and restart audio) every time
+  // streaming appends new blocks elsewhere in the array.
+  const currentBlock = safeIndex >= 0 ? blocks[safeIndex] : undefined;
+  const currentBlockId = currentBlock?.id;
+  const blocksLength = blocks.length;
 
   // ----- Player lifecycle: create once, release on unmount ---------------
   useEffect(() => {
@@ -129,7 +145,19 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     const subscription = player.addListener('playbackStatusUpdate', status => {
       if (typeof status.currentTime === 'number') setPositionSec(status.currentTime);
       if (typeof status.duration === 'number') setDurationSec(status.duration);
-      if (status.didJustFinish) handleBlockFinishedRef.current?.();
+      if (status.didJustFinish === true) {
+        // Ignore lingering `didJustFinish` events from the old source that
+        // arrive after we've already advanced. The flag is only released
+        // below, when we observe a confirmed-not-finished update from the
+        // new source.
+        if (transitioningRef.current) return;
+        transitioningRef.current = true;
+        handleBlockFinishedRef.current?.();
+      } else {
+        // Real, non-finished update — the new source is producing events,
+        // so any old-source backlog is gone. Re-arm the gate.
+        transitioningRef.current = false;
+      }
     });
 
     return () => {
@@ -146,17 +174,23 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   }, []);
 
   // ----- Stable callback for `didJustFinish` -----------------------------
+  // Reads fresh state from the stores at invocation time (no stale closures).
+  // The rising-edge gate in the listener guarantees this runs at most once
+  // per finished source, so we don't need any per-block bookkeeping here.
   const handleBlockFinishedRef = useRef<() => void>(() => {});
   useEffect(() => {
     handleBlockFinishedRef.current = () => {
-      const next = nextPlayableBlockIndex(blocks, safeIndex, 'forward', skipping);
+      const blocksNow = useLibraryStore.getState().books[bookId]?.blocks ?? [];
+      const skippingNow = useSettingsStore.getState().skipping;
+      const idx = usePlayerStore.getState().currentBlockIndex;
+      const next = nextPlayableBlockIndex(blocksNow, idx, 'forward', skippingNow);
       if (next == null) {
         usePlayerStore.getState().pause();
         return;
       }
       usePlayerStore.getState().setBlock(next);
     };
-  }, [blocks, safeIndex, skipping]);
+  }, [bookId]);
 
   // ----- Cache invalidation on voice / TTS-speed change ------------------
   useEffect(() => {
@@ -190,14 +224,17 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   }, [speed]);
 
   // ----- Current-block load (synthesize → replace source) ----------------
+  // Deps are intentionally narrow: `currentBlockId` (not the full `blocks`
+  // array) is what tells us "the current block has actually changed". When the
+  // streaming pipeline appends *other* blocks, the array reference changes but
+  // `currentBlockId` stays the same, so we don't restart the audio.
   useEffect(() => {
     const player = playerRef.current;
     if (!player) return;
     if (safeIndex < 0) return;
-    const block = blocks[safeIndex];
+    const block = currentBlock;
     if (!block) return;
-    if (!voiceId) {
-      // No voice configured yet — surface a friendly message but don't try to call TTS.
+    if (ttsProvider === 'elevenlabs' && !voiceId) {
       setIsReady(false);
       setIsLoadingBlock(false);
       setBlockError('Choose a voice in Settings to start listening.');
@@ -243,6 +280,11 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
           throw err;
         }
 
+        // The transition gate is released by the listener as soon as a
+        // non-finished status update is observed from the new source — not
+        // here. That guarantees we don't re-open the gate while old-source
+        // `didJustFinish` events are still in flight.
+
         setIsLoadingBlock(false);
         setIsReady(true);
 
@@ -266,7 +308,10 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
       ac.abort();
     };
     // `cacheEpoch` participates so a forced retry / cache bust re-runs the loader.
-  }, [bookId, blocks, safeIndex, voiceId, speed, cacheEpoch]);
+    // We deliberately omit `currentBlock` (a fresh object every render) and
+    // depend on its stable `currentBlockId` instead.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bookId, currentBlockId, safeIndex, voiceId, speed, cacheEpoch, ttsProvider]);
 
   // ----- Drive play/pause on the player when isPlaying flips -------------
   useEffect(() => {
@@ -315,15 +360,20 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   }, [bookId]);
 
   // ----- Prefetch upcoming main-content blocks ---------------------------
+  // Depend on `blocksLength` (a number) instead of `blocks` (a reference that
+  // changes on every streaming append) so we still re-run when newly streamed
+  // pages bring more upcoming blocks into the lookahead window, but don't
+  // restart prefetch needlessly when blocks land elsewhere in the array.
   useEffect(() => {
-    if (!voiceId) return;
+    if (ttsProvider === 'elevenlabs' && !voiceId) return;
     if (safeIndex < 0) return;
+    const blocksNow = useLibraryStore.getState().books[bookId]?.blocks ?? [];
     const queue: { id: string; text: string }[] = [];
     let cursor = safeIndex;
     while (queue.length < PREFETCH_LOOKAHEAD) {
-      const next = nextPlayableBlockIndex(blocks, cursor, 'forward', skipping);
+      const next = nextPlayableBlockIndex(blocksNow, cursor, 'forward', skipping);
       if (next == null) break;
-      const block = blocks[next];
+      const block = blocksNow[next];
       if (!block) break;
       queue.push({ id: block.id, text: block.text });
       cursor = next;
@@ -347,7 +397,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     return () => {
       ac.abort();
     };
-  }, [bookId, blocks, safeIndex, voiceId, speed, skipping, cacheEpoch]);
+  }, [bookId, blocksLength, safeIndex, voiceId, speed, skipping, cacheEpoch, ttsProvider]);
 
   // ----- Imperative callbacks --------------------------------------------
   const retryCurrentBlock = useCallback(() => {

@@ -1,5 +1,5 @@
 /**
- * Pipeline orchestrator: end-to-end book ingestion.
+ * Pipeline orchestrator: streamed book ingestion.
  *
  * Per-book flow:
  *   1. Pre-flight: register an `AbortController`, link the optional external
@@ -7,17 +7,17 @@
  *      bookId via `AlreadyProcessingError`.
  *   2. Queue: enqueue the work onto a global FIFO tail so only one book is
  *      processed at a time.
- *   3. Render: branch on the source extension.
- *      - `pdf`:        rasterize via the WebView host at scale 1.5 (lower than
- *                      the renderer default of 2.0 to control VLM token cost).
- *      - `png` / `jpg`: copy the source as page 1 (no rendering required).
- *      - `txt`:        read the file, split into paragraphs, skip steps 4-5.
- *   4. Cover: write page 1 as the book cover (best effort, non-fatal).
- *   5. VLM: analyze each page in parallel up to MAX_VLM_CONCURRENCY with
- *      retry/backoff. Live-update `processingProgress` as pages complete.
- *   6. Reduce: flatten per-page blocks into a globally-indexed list, attaching
- *      `imageUri` to figure blocks (whole page PNG for MVP — no region crop).
- *   7. Persist: write blocks, mark `status: 'ready'`, clear progress.
+ *   3. Stream: branch on the source extension.
+ *      - `pdf`:        rasterize via the WebView host at scale 1.5 and start
+ *                      VLM analysis on each page as soon as it is rendered.
+ *      - `png` / `jpg`: copy the source as page 1 then run a single VLM call.
+ *      - `txt`:        read the file, split into paragraphs, no VLM.
+ *      As pages finish analysis, blocks are appended to the book in
+ *      page-number order. The book flips to `status: 'ready'` after page 1's
+ *      blocks are committed — the user can start listening immediately while
+ *      remaining pages keep processing in the background.
+ *   4. Cover: write page 1 as the book cover (best effort, non-fatal) as soon
+ *      as page 1 is rendered (before VLM completes).
  *
  * Cancellation:
  *   - `cancelProcessing(bookId)` aborts the internal controller for that book.
@@ -25,8 +25,10 @@
  *     `VlmClient.analyzePage`), so they finish naturally; further dispatches
  *     are skipped immediately.
  *   - `renderPdfToPages` honors the signal, so PDF rendering stops promptly.
- *   - On abort the book is marked `failed` with error `'Cancelled'`. Files are
- *     NOT auto-deleted; the user can retry the import or `removeBook` to wipe.
+ *   - Before page 1 is ready: on abort the book is marked `failed` with error
+ *     `'Cancelled'`. After page 1 is ready: the book stays `ready` (the user
+ *     keeps what was already analyzed); later page errors are logged only.
+ *   - Files are NOT auto-deleted; the user can retry or `removeBook` to wipe.
  *
  * Retry:
  *   - VLM and TTS calls retry up to RETRY_ATTEMPTS times with exponential
@@ -43,7 +45,7 @@ import { paths } from '@/src/storage/paths';
 import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
 import type { Block } from '@/src/types/book';
-import type { VlmContext, VlmPageResult } from '@/src/types/vlm';
+import type { VlmClient, VlmContext, VlmPageResult } from '@/src/types/vlm';
 import { newId } from '@/src/utils/id';
 
 /** Concurrent in-flight VLM requests per book. */
@@ -171,6 +173,10 @@ async function runProcessBook(
 ): Promise<ProcessBookResult> {
   const { bookId, storedUri, ext, bookTitle, bookDescription } = opts;
 
+  // Mutable state shared with the streaming helper so the catch-block can tell
+  // whether the book had already flipped to `ready` before the failure.
+  const flow: StreamFlowState = { firstPageReady: false, blocks: [] };
+
   try {
     throwIfAborted(signal);
 
@@ -190,33 +196,34 @@ async function runProcessBook(
       return { bookId, blocks, pageCount: 0 };
     }
 
-    const pages = await renderOrCopyPages({ bookId, storedUri, ext }, signal);
+    const settings = useSettingsStore.getState();
+    const context: VlmContext = { skipping: settings.skipping };
+    if (bookTitle) context.bookTitle = bookTitle;
+    if (bookDescription) context.bookDescription = bookDescription;
 
-    throwIfAborted(signal);
-
-    if (pages.length > 0) {
-      try {
-        const coverUri = await writeCoverFromPage(bookId, pages[0].uri);
-        useLibraryStore.getState().updateBook(bookId, { coverUri });
-      } catch (err) {
-        console.warn(
-          `[processor] writeCoverFromPage failed for ${bookId}: ${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
-      }
-    }
-
-    const blocks = await analyzePages(bookId, pages, { bookTitle, bookDescription }, signal);
+    const pageCount = await streamRenderAndAnalyze(
+      { bookId, storedUri, ext, context },
+      flow,
+      signal
+    );
 
     useLibraryStore.getState().updateBook(bookId, {
-      blocks,
-      status: 'ready',
-      processingProgress: { stage: 'done', done: pages.length, total: pages.length }
+      processingProgress: { stage: 'done', done: pageCount, total: pageCount }
     });
 
-    return { bookId, blocks, pageCount: pages.length };
+    return { bookId, blocks: flow.blocks, pageCount };
   } catch (err) {
+    // After page 1 has committed, we keep the book usable and treat later
+    // failures (cancel or otherwise) as non-fatal. The user can keep listening
+    // to whatever has already been analyzed.
+    if (flow.firstPageReady) {
+      console.warn(
+        `[processor] background processing stopped for ${bookId} after page 1 was ready: ${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+      return { bookId, blocks: flow.blocks, pageCount: flow.blocks.length };
+    }
     const isCancel = signal.aborted || (err instanceof Error && err.name === 'AbortError');
     const message = isCancel ? 'Cancelled' : err instanceof Error ? err.message : String(err);
     useLibraryStore.getState().updateBook(bookId, {
@@ -226,6 +233,11 @@ async function runProcessBook(
     throw err;
   }
 }
+
+type StreamFlowState = {
+  firstPageReady: boolean;
+  blocks: Block[];
+};
 
 async function processTxt(storedUri: string): Promise<Block[]> {
   const text = await new File(storedUri).text();
@@ -246,28 +258,28 @@ function splitTxtParagraphs(text: string): string[] {
     .filter(p => p.length > 0);
 }
 
-type RenderInput = { bookId: string; storedUri: string; ext: string };
+type StreamInput = {
+  bookId: string;
+  storedUri: string;
+  ext: string;
+  context: VlmContext;
+};
 
-async function renderOrCopyPages(
-  input: RenderInput,
+/**
+ * Drive rendering and VLM analysis in parallel. Each page kicks off a VLM
+ * request as soon as it has been written to disk; analyzed pages are committed
+ * to the library store in strict page-number order so block indices stay
+ * monotonic. The book flips to `ready` after page 1's blocks land, allowing
+ * the user to start listening while later pages keep streaming in.
+ *
+ * Returns the total page count once both rendering and analysis are complete.
+ */
+async function streamRenderAndAnalyze(
+  input: StreamInput,
+  flow: StreamFlowState,
   signal: AbortSignal
-): Promise<{ pageNumber: number; uri: string }[]> {
-  const { bookId, storedUri, ext } = input;
-
-  if (ext === 'pdf') {
-    const result = await renderPdfToPages({
-      bookId,
-      pdfUri: storedUri,
-      scale: PDF_RENDER_SCALE,
-      signal,
-      onProgress: (page, total) => {
-        useLibraryStore.getState().updateBook(bookId, {
-          processingProgress: { stage: 'rendering', done: page, total }
-        });
-      }
-    });
-    return result.pages;
-  }
+): Promise<number> {
+  const { bookId, storedUri, ext, context } = input;
 
   if (ext === 'png' || ext === 'jpg') {
     ensureDirectory(paths.bookPagesDir(bookId));
@@ -276,84 +288,220 @@ async function renderOrCopyPages(
     useLibraryStore.getState().updateBook(bookId, {
       processingProgress: { stage: 'rendering', done: 1, total: 1 }
     });
-    return [{ pageNumber: 1, uri: pageUri }];
+    await commitCover(bookId, pageUri);
+    await analyzeAndCommitPage({
+      bookId,
+      pageNumber: 1,
+      pageUri,
+      totalPages: 1,
+      context,
+      flow,
+      signal,
+      client: getDefaultVlmClient(),
+      onProgressLabel: 'analyzing',
+      onCompleted: () => {
+        useLibraryStore.getState().updateBook(bookId, {
+          processingProgress: { stage: 'analyzing', done: 1, total: 1 }
+        });
+      }
+    });
+    return 1;
   }
 
-  throw new Error(`Unsupported extension for rendering: ${ext}`);
-}
+  if (ext !== 'pdf') {
+    throw new Error(`Unsupported extension for rendering: ${ext}`);
+  }
 
-async function analyzePages(
-  bookId: string,
-  pages: { pageNumber: number; uri: string }[],
-  ctxOpts: { bookTitle?: string; bookDescription?: string },
-  signal: AbortSignal
-): Promise<Block[]> {
-  const total = pages.length;
+  const client = getDefaultVlmClient();
 
-  const settings = useSettingsStore.getState();
-  const context: VlmContext = { skipping: settings.skipping };
-  if (ctxOpts.bookTitle) context.bookTitle = ctxOpts.bookTitle;
-  if (ctxOpts.bookDescription) context.bookDescription = ctxOpts.bookDescription;
+  // Per-page VLM results, sparse, indexed by `pageNumber - 1`.
+  const pageResults: (VlmPageResult | undefined)[] = [];
+  let nextPageToCommit = 1;
+  let renderedTotal = 0;
+  let analyzedCount = 0;
+  let coverWritten = false;
+  let globalBlockIndex = 0;
+  let inFlight = 0;
+  const slotWaiters: (() => void)[] = [];
+  const vlmPromises: Promise<void>[] = [];
 
-  useLibraryStore.getState().updateBook(bookId, {
-    processingProgress: { stage: 'analyzing', done: 0, total }
+  const acquireSlot = (): Promise<void> =>
+    new Promise<void>(resolve => {
+      const tryAcquire = (): void => {
+        if (inFlight < MAX_VLM_CONCURRENCY) {
+          inFlight += 1;
+          resolve();
+          return;
+        }
+        slotWaiters.push(tryAcquire);
+      };
+      tryAcquire();
+    });
+
+  const releaseSlot = (): void => {
+    inFlight -= 1;
+    const w = slotWaiters.shift();
+    if (w) w();
+  };
+
+  const tryCommitInOrder = (): void => {
+    while (nextPageToCommit <= renderedTotal && pageResults[nextPageToCommit - 1] !== undefined) {
+      const pageNumber = nextPageToCommit;
+      const result = pageResults[pageNumber - 1] as VlmPageResult;
+      const pageUri = paths.bookPage(bookId, pageNumber);
+
+      const newBlocks: Block[] = [];
+      for (const vlm of result.blocks) {
+        const partial = vlmBlockToBlock(vlm, pageNumber, globalBlockIndex);
+        // Figure regions are not cropped in MVP; point at the whole page PNG.
+        newBlocks.push(vlm.isFigure ? { ...partial, imageUri: pageUri } : partial);
+        globalBlockIndex += 1;
+      }
+      flow.blocks = flow.blocks.concat(newBlocks);
+
+      const patch: Partial<{
+        blocks: Block[];
+        status: 'ready';
+      }> = { blocks: flow.blocks };
+      if (!flow.firstPageReady) {
+        patch.status = 'ready';
+        flow.firstPageReady = true;
+      }
+      useLibraryStore.getState().updateBook(bookId, patch);
+
+      nextPageToCommit += 1;
+    }
+  };
+
+  const startVlmForPage = (pageNumber: number): void => {
+    const p = (async () => {
+      await acquireSlot();
+      try {
+        if (signal.aborted) return;
+        const pageUri = paths.bookPage(bookId, pageNumber);
+        const imageBase64 = await new File(pageUri).base64();
+        if (signal.aborted) return;
+        const result = await withRetry(
+          () =>
+            client.analyzePage({
+              imageBase64,
+              context,
+              pageNumber,
+              totalPages: renderedTotal
+            }),
+          {
+            attempts: RETRY_ATTEMPTS,
+            signal,
+            isRetryable: e => isVlmRetryable(e, signal)
+          }
+        );
+        pageResults[pageNumber - 1] = result;
+        analyzedCount += 1;
+        if (renderedTotal > 0) {
+          useLibraryStore.getState().updateBook(bookId, {
+            processingProgress: {
+              stage: 'analyzing',
+              done: analyzedCount,
+              total: renderedTotal
+            }
+          });
+        }
+        tryCommitInOrder();
+      } finally {
+        releaseSlot();
+      }
+    })();
+    vlmPromises.push(p);
+  };
+
+  await renderPdfToPages({
+    bookId,
+    pdfUri: storedUri,
+    scale: PDF_RENDER_SCALE,
+    signal,
+    onProgress: (pageNumber, total) => {
+      renderedTotal = total;
+      // Live-update the rendering counter for the upload screen until the
+      // analyzer takes over the progress field on its first commit.
+      useLibraryStore.getState().updateBook(bookId, {
+        processingProgress: { stage: 'rendering', done: pageNumber, total }
+      });
+      // Cover ASAP — does not block VLM dispatch.
+      if (pageNumber === 1 && !coverWritten) {
+        coverWritten = true;
+        const coverPageUri = paths.bookPage(bookId, 1);
+        void commitCover(bookId, coverPageUri);
+      }
+      startVlmForPage(pageNumber);
+    }
   });
 
-  let completed = 0;
-  const client = getDefaultVlmClient();
-  const pageResults = new Array<VlmPageResult>(total);
+  // Rendering is done; wait for any still-running VLM jobs.
+  await Promise.all(vlmPromises);
 
-  await mapWithConcurrency(
-    pages,
-    MAX_VLM_CONCURRENCY,
-    async (page, index) => {
-      throwIfAborted(signal);
-      const imageBase64 = await new File(page.uri).base64();
-      const result = await withRetry(
-        () =>
-          client.analyzePage({
-            imageBase64,
-            context,
-            pageNumber: page.pageNumber,
-            totalPages: total
-          }),
-        {
-          attempts: RETRY_ATTEMPTS,
-          signal,
-          isRetryable: e => isVlmRetryable(e, signal)
-        }
-      );
-      pageResults[index] = result;
-      completed += 1;
-      useLibraryStore.getState().updateBook(bookId, {
-        processingProgress: { stage: 'analyzing', done: completed, total }
-      });
-    },
-    signal
-  );
+  // Defensive: ensure the trailing pages have been committed.
+  tryCommitInOrder();
 
-  return reduceBlocks(pages, pageResults);
+  return renderedTotal;
 }
 
-function reduceBlocks(
-  pages: { pageNumber: number; uri: string }[],
-  pageResults: VlmPageResult[]
-): Block[] {
-  const blocks: Block[] = [];
-  let globalIndex = 0;
-  for (let i = 0; i < pages.length; i += 1) {
-    const page = pages[i];
-    const result = pageResults[i];
-    if (!result) continue;
-    for (const vlm of result.blocks) {
-      const partial = vlmBlockToBlock(vlm, page.pageNumber, globalIndex);
-      // Figure regions are not cropped in MVP; point at the whole page PNG.
-      const block: Block = vlm.isFigure ? { ...partial, imageUri: page.uri } : partial;
-      blocks.push(block);
-      globalIndex += 1;
-    }
+async function commitCover(bookId: string, pageUri: string): Promise<void> {
+  try {
+    const coverUri = await writeCoverFromPage(bookId, pageUri);
+    useLibraryStore.getState().updateBook(bookId, { coverUri });
+  } catch (err) {
+    console.warn(
+      `[processor] writeCoverFromPage failed for ${bookId}: ${
+        err instanceof Error ? err.message : String(err)
+      }`
+    );
   }
-  return blocks;
+}
+
+type AnalyzeAndCommitArgs = {
+  bookId: string;
+  pageNumber: number;
+  pageUri: string;
+  totalPages: number;
+  context: VlmContext;
+  flow: StreamFlowState;
+  signal: AbortSignal;
+  client: VlmClient;
+  onProgressLabel: 'analyzing';
+  onCompleted: () => void;
+};
+
+/**
+ * Single-page analyze-and-commit, used for the png/jpg branch where there's
+ * exactly one page and no streaming order to manage.
+ */
+async function analyzeAndCommitPage(args: AnalyzeAndCommitArgs): Promise<void> {
+  const { bookId, pageNumber, pageUri, totalPages, context, flow, signal, client } = args;
+  throwIfAborted(signal);
+  useLibraryStore.getState().updateBook(bookId, {
+    processingProgress: { stage: args.onProgressLabel, done: 0, total: totalPages }
+  });
+  const imageBase64 = await new File(pageUri).base64();
+  const result = await withRetry(
+    () => client.analyzePage({ imageBase64, context, pageNumber, totalPages }),
+    {
+      attempts: RETRY_ATTEMPTS,
+      signal,
+      isRetryable: e => isVlmRetryable(e, signal)
+    }
+  );
+
+  let globalIndex = flow.blocks.length;
+  const newBlocks: Block[] = [];
+  for (const vlm of result.blocks) {
+    const partial = vlmBlockToBlock(vlm, pageNumber, globalIndex);
+    newBlocks.push(vlm.isFigure ? { ...partial, imageUri: pageUri } : partial);
+    globalIndex += 1;
+  }
+  flow.blocks = flow.blocks.concat(newBlocks);
+  flow.firstPageReady = true;
+  useLibraryStore.getState().updateBook(bookId, { blocks: flow.blocks, status: 'ready' });
+  args.onCompleted();
 }
 
 /**
@@ -451,43 +599,4 @@ async function sleepCancellable(ms: number, signal?: AbortSignal): Promise<void>
       signal.addEventListener('abort', abortHandler, { once: true });
     }
   });
-}
-
-async function mapWithConcurrency<T, R>(
-  items: T[],
-  concurrency: number,
-  fn: (item: T, index: number) => Promise<R>,
-  signal?: AbortSignal
-): Promise<R[]> {
-  if (items.length === 0) return [];
-  const results = new Array<R>(items.length);
-  let cursor = 0;
-  let firstError: unknown;
-
-  const worker = async (): Promise<void> => {
-    while (true) {
-      if (firstError !== undefined) return;
-      if (signal?.aborted) {
-        if (firstError === undefined) firstError = new DOMException('Aborted', 'AbortError');
-        return;
-      }
-      const i = cursor;
-      cursor += 1;
-      if (i >= items.length) return;
-      try {
-        results[i] = await fn(items[i], i);
-      } catch (err) {
-        if (firstError === undefined) firstError = err;
-        return;
-      }
-    }
-  };
-
-  const workerCount = Math.min(concurrency, items.length);
-  const pool: Promise<void>[] = [];
-  for (let i = 0; i < workerCount; i += 1) pool.push(worker());
-  await Promise.all(pool);
-
-  if (firstError !== undefined) throw firstError;
-  return results;
 }
