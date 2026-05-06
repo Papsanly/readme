@@ -24,6 +24,10 @@ export const paths = {
   bookAudio(bookId: string, blockId: string): string {
     return join(paths.bookAudioDir(bookId), `${blockId}.mp3`);
   },
+  /** Per-block alignment (TTS character timestamps), saved next to the audio. */
+  bookAudioAlignment(bookId: string, blockId: string): string {
+    return join(paths.bookAudioDir(bookId), `${blockId}.alignment.json`);
+  },
   bookCover(bookId: string): string {
     return join(paths.bookDir(bookId), 'cover.png');
   }

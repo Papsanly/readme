@@ -42,6 +42,10 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen name="player/[id]" options={{ headerShown: false }} />
           <Stack.Screen
+            name="book-settings/[id]"
+            options={{ headerShown: true, title: 'Reading settings' }}
+          />
+          <Stack.Screen
             name="upload/[id]"
             options={{ presentation: 'modal', headerShown: false }}
           />
@@ -53,6 +57,10 @@ export default function RootLayout() {
           <Stack.Screen
             name="settings/tts-provider"
             options={{ headerShown: true, title: 'TTS provider' }}
+          />
+          <Stack.Screen
+            name="settings/local-voice"
+            options={{ headerShown: true, title: 'Local voice' }}
           />
           <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
         </Stack>

@@ -54,9 +54,16 @@ export function MiniPlayer({ onPress }: MiniPlayerProps) {
   const safeIndex = totalBlocks > 0 ? Math.min(Math.max(currentBlockIndex, 0), totalBlocks - 1) : 0;
   const currentBlock = totalBlocks > 0 ? book.blocks[safeIndex] : undefined;
   const snippet = makeSnippet(currentBlock?.text);
-  const subtitle =
-    snippet ?? (totalBlocks > 0 ? `Block ${safeIndex + 1} / ${totalBlocks}` : 'Preparing…');
-  const ratio = totalBlocks > 0 ? safeIndex / totalBlocks : 0;
+  // Page-level position summary — feels like "I'm on page X of Y" rather
+  // than "block 47 of 218". Falls back to a snippet of the current block's
+  // text if the book has no page metadata (e.g. plain-text imports).
+  const allPages = new Set<number>();
+  for (const b of book.blocks) allPages.add(b.page ?? 1);
+  const totalPages = allPages.size;
+  const currentPage = currentBlock?.page ?? 1;
+  const pageSubtitle = totalBlocks > 0 ? `Page ${currentPage} of ${totalPages}` : 'Preparing…';
+  const subtitle = snippet ?? pageSubtitle;
+  const ratio = totalPages > 0 ? Math.min(1, currentPage / totalPages) : 0;
   const showPlaceholder = !book.coverUri || coverFailed;
 
   const goToPlayer = () => {

@@ -47,6 +47,20 @@ export type ProcessingProgress = {
   total: number;
 };
 
+/**
+ * Per-book overrides for the global reading settings. Any field that's
+ * `undefined` falls back to the global value in `useSettingsStore`. Use
+ * `useEffectiveSettings` to resolve the merged view.
+ */
+export type BookSettingsOverride = {
+  speed?: number;
+  skipping?: import('./settings').SkippingMode;
+  ttsProvider?: import('./settings').TtsProvider;
+  voiceId?: string;
+  voiceName?: string;
+  localVoice?: string;
+};
+
 export type Book = {
   id: string;
   title: string;
@@ -58,4 +72,6 @@ export type Book = {
   processingProgress?: ProcessingProgress;
   blocks: Block[];
   progress: BookProgress;
+  /** Optional reading-settings override; merged on top of global settings. */
+  settingsOverride?: BookSettingsOverride;
 };

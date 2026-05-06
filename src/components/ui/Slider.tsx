@@ -16,7 +16,11 @@ export type SliderProps = {
   min: number;
   max: number;
   step?: number;
-  onChange: (value: number) => void;
+  /** Fires continuously while the user drags. Can be expensive to apply — */
+  /** for an audio scrubber prefer `onChangeCommit` and ignore `onChange`.  */
+  onChange?: (value: number) => void;
+  /** Fires once when the user lifts the finger; ideal for committing a seek. */
+  onChangeCommit?: (value: number) => void;
   style?: StyleProp<ViewStyle>;
   height?: number;
   thumbSize?: number;
@@ -39,6 +43,7 @@ export function Slider({
   max,
   step = 0.01,
   onChange,
+  onChangeCommit,
   style,
   height = 4,
   thumbSize = 24
@@ -59,12 +64,24 @@ export function Slider({
 
   const emit = useCallback(
     (nextRatio: number) => {
+      if (!onChange) return;
       const raw = min + nextRatio * range;
       const stepped = step > 0 ? quantize(raw, step, min) : raw;
       const clamped = clamp(stepped, min, max);
       if (clamped !== value) onChange(clamped);
     },
     [min, max, step, range, value, onChange]
+  );
+
+  const commit = useCallback(
+    (nextRatio: number) => {
+      if (!onChangeCommit) return;
+      const raw = min + nextRatio * range;
+      const stepped = step > 0 ? quantize(raw, step, min) : raw;
+      const clamped = clamp(stepped, min, max);
+      onChangeCommit(clamped);
+    },
+    [min, max, step, range, onChangeCommit]
   );
 
   const pan = Gesture.Pan()
@@ -82,6 +99,7 @@ export function Slider({
     })
     .onEnd(() => {
       dragging.value = false;
+      runOnJS(commit)(dragRatio.value);
     });
 
   const fillStyle = useAnimatedStyle(() => {

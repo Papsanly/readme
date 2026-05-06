@@ -23,8 +23,10 @@ export default function SettingsScreen() {
   const voiceName = useSettingsStore(s => s.voiceName);
   const skipping = useSettingsStore(s => s.skipping);
   const ttsProvider = useSettingsStore(s => s.ttsProvider);
+  const localVoice = useSettingsStore(s => s.localVoice);
 
   const goVoice = () => router.push('/settings/voice' as Href);
+  const goLocalVoice = () => router.push('/settings/local-voice' as Href);
   const goSkipping = () => router.push('/settings/skipping' as Href);
   const goTtsProvider = () => router.push('/settings/tts-provider' as Href);
   const goAbout = () => router.push('/settings/about' as Href);
@@ -61,7 +63,13 @@ export default function SettingsScreen() {
             right={<RightValue value={voiceName ?? 'Default'} />}
             onPress={goVoice}
           />
-        ) : null}
+        ) : (
+          <ListItem
+            title="Voice"
+            right={<RightValue value={localVoice ?? 'alloy'} />}
+            onPress={goLocalVoice}
+          />
+        )}
         <ListItem
           title="Block skipping"
           right={<RightValue value={SKIPPING_LABELS[skipping]} />}

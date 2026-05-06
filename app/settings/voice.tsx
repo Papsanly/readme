@@ -10,6 +10,9 @@ import {
   MissingElevenLabsKeyError,
   getDefaultElevenLabsClient
 } from '@/src/api/elevenlabs';
+import { useLocalSearchParams } from 'expo-router';
+
+import { useEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
 import { invalidateVoice } from '@/src/pipeline/tts';
 import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
@@ -29,10 +32,29 @@ type LoadState =
 export default function VoiceSettingsScreen() {
   const { colors, spacing, fontSize, fontWeight } = useTheme();
 
+  // When opened via /settings/voice?bookId=X, picks land in that book's
+  // override; otherwise they update the global default. Speed control
+  // always edits the global default.
+  const params = useLocalSearchParams<{ bookId?: string }>();
+  const bookId = typeof params.bookId === 'string' ? params.bookId : undefined;
+  const effective = useEffectiveSettings(bookId);
+
   const speed = useSettingsStore(s => s.speed);
-  const voiceId = useSettingsStore(s => s.voiceId);
+  const voiceId = effective.voiceId;
   const setSpeed = useSettingsStore(s => s.setSpeed);
-  const setVoice = useSettingsStore(s => s.setVoice);
+  const setVoice = useCallback(
+    (newId?: string, newName?: string) => {
+      if (bookId) {
+        useLibraryStore.getState().setSettingsOverride(bookId, {
+          voiceId: newId,
+          voiceName: newName
+        });
+      } else {
+        useSettingsStore.getState().setVoice(newId, newName);
+      }
+    },
+    [bookId]
+  );
 
   const [searchInput, setSearchInput] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -127,7 +149,15 @@ export default function VoiceSettingsScreen() {
       // Stop any ongoing preview before applying the change.
       preview.stop();
       setVoice(voice.id, voice.name);
-      // Fire-and-forget cache invalidation across all books.
+      // Fire-and-forget cache invalidation. When editing a per-book override,
+      // only that book's cache needs clearing; other books still use their
+      // previous voice. When editing the global default, every book gets
+      // its cache cleared (matching the old behavior).
+      if (bookId) {
+        void invalidateVoice(bookId).catch(() => undefined);
+        Alert.alert('Voice updated', `This book will use ${voice.name}.`);
+        return;
+      }
       const books = useLibraryStore.getState().books;
       const ids = Object.keys(books);
       if (ids.length === 0) {
@@ -145,7 +175,7 @@ export default function VoiceSettingsScreen() {
           // We already swallowed individual failures above.
         });
     },
-    [preview, setVoice]
+    [preview, setVoice, bookId]
   );
 
   const speedLabel = useMemo(() => `${speed.toFixed(2)}×`, [speed]);

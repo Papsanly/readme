@@ -3,6 +3,7 @@ import {
   clearBookAudio,
   getCachedAudioPath,
   hasCachedAudio,
+  writeAlignment,
   writeAudio
 } from '@/src/storage/audioCache';
 import type { VoiceSettings } from '@/src/types/voice';
@@ -51,12 +52,24 @@ export async function synthesizeBlockToFile(
     return { uri, cached: true };
   }
 
-  const bytes = await resolveClient(client).synthesize({
+  const result = await resolveClient(client).synthesize({
     voiceId,
     text,
     voiceSettings
   });
-  const writtenUri = await writeAudio(bookId, blockId, bytes);
+  const writtenUri = await writeAudio(bookId, blockId, result.bytes);
+  // Persist alignment data when the provider returned any (ElevenLabs).
+  // Local server (XTTS-v2) returns audio only — we silently skip writing
+  // the JSON, and `readAlignment` later returns `null`.
+  if (result.alignment) {
+    try {
+      await writeAlignment(bookId, blockId, result.alignment);
+    } catch (err) {
+      console.warn(
+        `[tts] writeAlignment failed for ${blockId}: ${err instanceof Error ? err.message : String(err)}`
+      );
+    }
+  }
   return { uri: writtenUri, cached: false };
 }
 

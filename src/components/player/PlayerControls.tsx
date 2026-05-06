@@ -1,6 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import type { ReactNode } from 'react';
 import {
+  ActivityIndicator,
   Pressable,
   StyleSheet,
   Text,
@@ -9,27 +10,27 @@ import {
   type StyleProp,
   type ViewStyle
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { IconSymbol, ProgressBar, type IconName } from '@/src/components/ui';
+import { IconSymbol, Slider, type IconName } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/useTheme';
 import { formatDuration } from '@/src/utils/format';
 
 const PLAY_BUTTON_SIZE = 56;
 const STEP_BUTTON_SIZE = 44;
-const PILL_HEIGHT = 30;
 
 export type PlayerControlsProps = {
   isPlaying: boolean;
   isLoadingBlock: boolean;
   blockError?: string;
-  /** Intra-block playback position in seconds. */
+  /** Page-level (or whatever aggregated unit the host chooses) playback position. */
   positionSec: number;
-  /** Intra-block duration in seconds. May be 0 while loading. */
+  /** Page-level duration. May be 0 while the first block is loading. */
   durationSec: number;
-  /** Current speed multiplier (e.g. 1.0). */
-  speed: number;
-  /** Voice display name, or undefined when no voice has been picked yet. */
-  voiceName?: string;
+  /** 1-based current page number; `0` when there are no pages. */
+  currentPage?: number;
+  /** Total page count in the book. */
+  totalPages?: number;
   /** Whether the prev / next block buttons should be enabled. */
   canPrev: boolean;
   canNext: boolean;
@@ -38,8 +39,8 @@ export type PlayerControlsProps = {
   onPrev: () => void;
   onNext: () => void;
   onSeekBy: (deltaSec: number) => void;
-  onCycleSpeed: () => void;
-  onOpenVoice: () => void;
+  /** Absolute seek to `positionSec` within the current page. Optional. */
+  onSeekTo?: (positionSec: number) => void;
   onRetryCurrentBlock: () => void;
 
   style?: StyleProp<ViewStyle>;
@@ -95,25 +96,22 @@ export function PlayerControls({
   blockError,
   positionSec,
   durationSec,
-  speed,
-  voiceName,
+  currentPage,
+  totalPages,
   canPrev,
   canNext,
   onTogglePlay,
   onPrev,
   onNext,
   onSeekBy,
-  onCycleSpeed,
-  onOpenVoice,
+  onSeekTo,
   onRetryCurrentBlock,
   style
 }: PlayerControlsProps) {
   const { colors, radius, spacing, fontSize, fontWeight } = useTheme();
+  const insets = useSafeAreaInsets();
 
-  const ratio = durationSec > 0 ? positionSec / durationSec : 0;
   const playIcon: IconName = isPlaying ? 'pause.fill' : 'play.fill';
-  const speedLabel = `${speed.toFixed(speed === Math.round(speed) ? 1 : 2)}×`;
-  const voiceLabel = voiceName ?? 'Choose voice';
 
   const handleTogglePlay = () => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
@@ -129,7 +127,10 @@ export function PlayerControls({
           borderTopColor: colors.border,
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.md,
-          paddingBottom: spacing.lg,
+          // Bottom padding: our usual `spacing.lg` *plus* the system inset
+          // (Android navigation-bar height / iOS home-indicator height) so
+          // the controls don't visually touch system chrome.
+          paddingBottom: spacing.lg + insets.bottom,
           gap: spacing.md
         },
         style
@@ -182,7 +183,34 @@ export function PlayerControls({
       ) : null}
 
       <View>
-        <ProgressBar progress={ratio} height={3} />
+        {currentPage && totalPages ? (
+          <View
+            style={[
+              styles.row,
+              { justifyContent: 'center', gap: spacing.xs, marginBottom: spacing.xs }
+            ]}
+          >
+            {isLoadingBlock ? <ActivityIndicator size="small" color={colors.accent} /> : null}
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontSize: fontSize.caption,
+                fontWeight: fontWeight.medium
+              }}
+            >
+              {isLoadingBlock ? 'Loading audio…' : `Page ${currentPage} of ${totalPages}`}
+            </Text>
+          </View>
+        ) : null}
+        <Slider
+          value={positionSec}
+          min={0}
+          max={Math.max(durationSec, 0.0001)}
+          step={0.1}
+          onChangeCommit={onSeekTo}
+          height={4}
+          thumbSize={18}
+        />
         <View style={[styles.row, { marginTop: spacing.xs, justifyContent: 'space-between' }]}>
           <Text style={{ color: colors.textMuted, fontSize: fontSize.caption }}>
             {formatDuration(positionSec)}
@@ -211,10 +239,10 @@ export function PlayerControls({
         </HapticPressable>
         <Pressable
           onPress={handleTogglePlay}
-          disabled={isLoadingBlock && !isPlaying}
+          disabled={isLoadingBlock}
           accessibilityRole="button"
-          accessibilityLabel={isPlaying ? 'Pause' : 'Play'}
-          accessibilityState={{ disabled: isLoadingBlock && !isPlaying, busy: isLoadingBlock }}
+          accessibilityLabel={isLoadingBlock ? 'Loading audio' : isPlaying ? 'Pause' : 'Play'}
+          accessibilityState={{ disabled: isLoadingBlock, busy: isLoadingBlock }}
           style={({ pressed }) => [
             styles.playButton,
             {
@@ -226,7 +254,11 @@ export function PlayerControls({
             }
           ]}
         >
-          <IconSymbol name={playIcon} size={26} color={colors.accentText} weight="semibold" />
+          {isLoadingBlock ? (
+            <ActivityIndicator color={colors.accentText} size="small" />
+          ) : (
+            <IconSymbol name={playIcon} size={26} color={colors.accentText} weight="semibold" />
+          )}
         </Pressable>
         <HapticPressable
           onPress={() => onSeekBy(15)}
@@ -244,71 +276,6 @@ export function PlayerControls({
           <IconSymbol name="chevron.right" size={22} color={colors.text} weight="medium" />
         </HapticPressable>
       </View>
-
-      <View style={[styles.row, { gap: spacing.sm, justifyContent: 'center' }]}>
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            onCycleSpeed();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={`Playback speed ${speedLabel}`}
-          style={({ pressed }) => [
-            styles.pill,
-            {
-              height: PILL_HEIGHT,
-              backgroundColor: colors.bg,
-              borderColor: colors.border,
-              borderRadius: PILL_HEIGHT / 2,
-              paddingHorizontal: spacing.md,
-              opacity: pressed ? 0.6 : 1
-            }
-          ]}
-        >
-          <Text
-            style={{
-              color: colors.text,
-              fontSize: fontSize.caption,
-              fontWeight: fontWeight.semibold
-            }}
-          >
-            {speedLabel}
-          </Text>
-        </Pressable>
-        <Pressable
-          onPress={() => {
-            Haptics.selectionAsync().catch(() => {});
-            onOpenVoice();
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={voiceName ? `Voice: ${voiceName}` : 'Choose voice'}
-          style={({ pressed }) => [
-            styles.pill,
-            {
-              height: PILL_HEIGHT,
-              backgroundColor: colors.bg,
-              borderColor: colors.border,
-              borderRadius: PILL_HEIGHT / 2,
-              paddingHorizontal: spacing.md,
-              gap: spacing.xs,
-              opacity: pressed ? 0.6 : 1
-            }
-          ]}
-        >
-          <IconSymbol name="speaker.wave.2.fill" size={12} color={colors.text} weight="medium" />
-          <Text
-            style={{
-              color: colors.text,
-              fontSize: fontSize.caption,
-              fontWeight: fontWeight.semibold,
-              maxWidth: 160
-            }}
-            numberOfLines={1}
-          >
-            {voiceLabel}
-          </Text>
-        </Pressable>
-      </View>
     </View>
   );
 }
@@ -320,12 +287,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center' },
   transport: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
   playButton: { alignItems: 'center', justifyContent: 'center' },
-  pill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth
-  },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center'

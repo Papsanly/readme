@@ -4,17 +4,15 @@ import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PlayerControls, ReflowedList } from '@/src/components/player';
+import { CurrentPageView, PlayerControls } from '@/src/components/player';
 import { EmptyState, IconSymbol, ProgressBar } from '@/src/components/ui';
-import { nextPlayableBlockIndex, useAudioEngine } from '@/src/hooks/useAudioEngine';
+import { useAudioEngine } from '@/src/hooks/useAudioEngine';
 import { useTheme } from '@/src/hooks/useTheme';
 import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
-import { useSettingsStore } from '@/src/state/settings';
 import type { Book } from '@/src/types/book';
 
 const HEADER_BUTTON_SIZE = 36;
-const SPEED_CYCLE = [0.85, 1.0, 1.15, 1.3] as const;
 const CONTROLS_INSET = 220;
 
 export default function PlayerScreen() {
@@ -53,10 +51,6 @@ export default function PlayerScreen() {
 
 function ReadyScreen({ book }: { book: Book }) {
   const { colors } = useTheme();
-  const speed = useSettingsStore(s => s.speed);
-  const skipping = useSettingsStore(s => s.skipping);
-  const voiceName = useSettingsStore(s => s.voiceName);
-
   const currentBlockIndex = usePlayerStore(s => s.currentBlockIndex);
   const isPlaying = usePlayerStore(s => s.isPlaying);
 
@@ -66,37 +60,83 @@ function ReadyScreen({ book }: { book: Book }) {
   const totalBlocks = blocks.length;
   const safeIndex = totalBlocks > 0 ? Math.min(Math.max(currentBlockIndex, 0), totalBlocks - 1) : 0;
 
-  const canPrev = useMemo(
-    () =>
-      totalBlocks > 0 && nextPlayableBlockIndex(blocks, safeIndex, 'backward', skipping) != null,
-    [blocks, safeIndex, skipping, totalBlocks]
-  );
-  const canNext = useMemo(
-    () => totalBlocks > 0 && nextPlayableBlockIndex(blocks, safeIndex, 'forward', skipping) != null,
-    [blocks, safeIndex, skipping, totalBlocks]
-  );
-
-  const erroredIndex = engine.blockError ? safeIndex : undefined;
-
-  const handleSelectBlock = useCallback((index: number) => {
-    usePlayerStore.getState().setBlock(index);
-  }, []);
+  // Prev: always available (can rewind to start of current page) once the
+  // book has any playable content. Next: enabled if any later page exists.
+  const canPrev = totalBlocks > 0;
+  const canNext = useMemo(() => {
+    if (totalBlocks === 0) return false;
+    const currentBlk = blocks[safeIndex];
+    const currentPage = currentBlk?.page ?? 1;
+    const pages = new Set<number>();
+    for (const b of blocks) pages.add(b.page ?? 1);
+    const sorted = Array.from(pages).sort((a, b) => a - b);
+    const idx = sorted.indexOf(currentPage);
+    return idx >= 0 && idx < sorted.length - 1;
+  }, [blocks, safeIndex, totalBlocks]);
 
   const handleRetryBlock = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
     engine.retryCurrentBlock();
   }, [engine]);
 
-  const handleCycleSpeed = useCallback(() => {
-    const current = useSettingsStore.getState().speed;
-    let nextIdx = SPEED_CYCLE.findIndex(v => Math.abs(v - current) < 0.01) + 1;
-    if (nextIdx >= SPEED_CYCLE.length) nextIdx = 0;
-    useSettingsStore.getState().setSpeed(SPEED_CYCLE[nextIdx]);
-  }, []);
+  /**
+   * Word tapped on the current page → seek directly through the engine.
+   * `seekToBlockOffset` does a live seek if the target block is the one
+   * already loaded (works during playback, no re-synth) and falls back to
+   * a load + post-load seek for any other block.
+   */
+  const handleWordTap = useCallback(
+    (blockIndex: number, offsetSec: number) => {
+      engine.seekToBlockOffset(blockIndex, offsetSec);
+    },
+    [engine]
+  );
 
-  const handleOpenVoice = useCallback(() => {
-    router.push('/settings/voice' as Href);
-  }, []);
+  /**
+   * Player progress-bar drag committed → translate the page-level position
+   * (seconds since the page started) to a `(blockIndex, offsetWithinBlock)`
+   * pair, then dispatch via `setBlock` so the engine loads and seeks.
+   *
+   * Block durations: real values for blocks the user has already played
+   * (cached on the engine) aren't accessible here, so we use the same
+   * char-rate estimate as the page progress bar. The estimate only matters
+   * for *which block* contains the target second; once the right block is
+   * loaded the actual seek is in real audio time.
+   */
+  const handleSeekTo = useCallback(
+    (pagePositionSec: number) => {
+      if (totalBlocks === 0) return;
+      const currentBlk = blocks[safeIndex];
+      const currentPage = currentBlk?.page ?? 1;
+
+      const pageBlocks: { index: number; estDuration: number }[] = [];
+      for (let i = 0; i < blocks.length; i += 1) {
+        const b = blocks[i];
+        if ((b.page ?? 1) !== currentPage) continue;
+        // Engine-reported real duration when the block has been loaded once,
+        // text-length estimate otherwise — same numbers the page progress
+        // bar uses, so the slider position lines up with the audio.
+        pageBlocks.push({ index: i, estDuration: engine.estimateBlockDuration(b) });
+      }
+      if (pageBlocks.length === 0) return;
+
+      let remaining = Math.max(0, pagePositionSec);
+      let target = pageBlocks[0];
+      let offsetWithinBlock = 0;
+      for (let i = 0; i < pageBlocks.length; i += 1) {
+        const pb = pageBlocks[i];
+        if (remaining < pb.estDuration || i === pageBlocks.length - 1) {
+          target = pb;
+          offsetWithinBlock = Math.max(0, remaining);
+          break;
+        }
+        remaining -= pb.estDuration;
+      }
+
+      engine.seekToBlockOffset(target.index, offsetWithinBlock);
+    },
+    [blocks, safeIndex, totalBlocks, engine]
+  );
 
   // ----- Body branches per book status ------------------------------------
   let body: ReactNode;
@@ -123,14 +163,14 @@ function ReadyScreen({ book }: { book: Book }) {
   } else {
     body = (
       <View style={styles.list}>
-        <ReflowedList
+        <CurrentPageView
           blocks={blocks}
           currentIndex={safeIndex}
-          skipping={skipping}
-          erroredIndex={erroredIndex}
-          onSelect={handleSelectBlock}
-          onRetry={handleRetryBlock}
           bottomInset={CONTROLS_INSET}
+          errorMessage={engine.blockError}
+          onRetry={handleRetryBlock}
+          onWordTap={handleWordTap}
+          charOffsetToAudioSec={engine.charOffsetToAudioSec}
         />
       </View>
     );
@@ -144,7 +184,7 @@ function ReadyScreen({ book }: { book: Book }) {
       edges={['top', 'left', 'right']}
       style={[styles.screen, { backgroundColor: colors.bg }]}
     >
-      <PlayerHeader title={book.title} />
+      <PlayerHeader title={book.title} bookId={book.id} />
       <View style={styles.body}>{body}</View>
       {showControls ? (
         <View>
@@ -152,18 +192,17 @@ function ReadyScreen({ book }: { book: Book }) {
             isPlaying={isPlaying}
             isLoadingBlock={engine.isLoadingBlock}
             blockError={engine.blockError}
-            positionSec={engine.positionSec}
-            durationSec={engine.durationSec}
-            speed={speed}
-            voiceName={voiceName}
+            positionSec={engine.pagePositionSec}
+            durationSec={engine.pageDurationSec}
+            currentPage={engine.currentPage}
+            totalPages={engine.totalPages}
             canPrev={canPrev}
             canNext={canNext}
             onTogglePlay={engine.togglePlay}
             onPrev={engine.goPrev}
             onNext={engine.goNext}
             onSeekBy={engine.seekBy}
-            onCycleSpeed={handleCycleSpeed}
-            onOpenVoice={handleOpenVoice}
+            onSeekTo={handleSeekTo}
             onRetryCurrentBlock={engine.retryCurrentBlock}
           />
         </View>
@@ -172,7 +211,7 @@ function ReadyScreen({ book }: { book: Book }) {
   );
 }
 
-function PlayerHeader({ title }: { title: string }) {
+function PlayerHeader({ title, bookId }: { title: string; bookId?: string }) {
   const { colors, spacing, fontSize, fontWeight } = useTheme();
 
   const handleBack = useCallback(() => {
@@ -180,6 +219,12 @@ function PlayerHeader({ title }: { title: string }) {
     if (router.canGoBack()) router.back();
     else router.replace('/(tabs)' as Href);
   }, []);
+
+  const handleOpenSettings = useCallback(() => {
+    if (!bookId) return;
+    Haptics.selectionAsync().catch(() => {});
+    router.push(`/book-settings/${bookId}` as Href);
+  }, [bookId]);
 
   return (
     <View
@@ -224,7 +269,28 @@ function PlayerHeader({ title }: { title: string }) {
       >
         {title}
       </Text>
-      <View style={{ width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE }} />
+      {bookId ? (
+        <Pressable
+          onPress={handleOpenSettings}
+          accessibilityRole="button"
+          accessibilityLabel="Reading settings"
+          hitSlop={8}
+          style={({ pressed }) => [
+            styles.headerButton,
+            {
+              width: HEADER_BUTTON_SIZE,
+              height: HEADER_BUTTON_SIZE,
+              borderRadius: HEADER_BUTTON_SIZE / 2,
+              backgroundColor: colors.bgElevated,
+              opacity: pressed ? 0.7 : 1
+            }
+          ]}
+        >
+          <IconSymbol name="gear" size={18} color={colors.text} weight="medium" />
+        </Pressable>
+      ) : (
+        <View style={{ width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE }} />
+      )}
     </View>
   );
 }

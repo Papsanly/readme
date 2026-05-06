@@ -1,34 +1,86 @@
-import { useCallback, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { FlatList, type ListRenderItem, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/src/hooks/useTheme';
 import type { Block } from '@/src/types/book';
 import type { SkippingMode } from '@/src/types/settings';
 
-import { BlockItem } from './BlockItem';
+import { PageItem } from './PageItem';
 
 const VIEW_POSITION = 0.3;
-/** Rough height-per-item used for the one-shot initial offset jump. */
-const ESTIMATED_ITEM_HEIGHT = 110;
+const ESTIMATED_PAGE_HEIGHT = 200;
 
 export type ReflowedListProps = {
   blocks: readonly Block[];
+  /** Index of the currently-playing block. The list derives the current page from it. */
   currentIndex: number;
+  /** Skip mode — used to detect pages with zero playable blocks (visually dimmed). */
   skipping: SkippingMode;
-  /** Index of the block that failed to synthesize, if any. */
+  /** When the current block's audio synth failed, this is its index. */
   erroredIndex?: number;
-  /** Tapping a block routes here. */
-  onSelect: (index: number) => void;
-  /** Tapping the errored-block "retry" hint routes here. */
-  onRetry?: (index: number) => void;
-  /** Extra bottom padding so the last items aren't hidden behind the controls overlay. */
+  /** Called with the global block index of the page's first playable block. */
+  onSelect: (firstBlockIndex: number) => void;
+  /** Called when the user taps the failing current-page card. */
+  onRetry?: () => void;
+  /** Bottom padding so the last page card isn't hidden behind the controls overlay. */
   bottomInset: number;
   style?: StyleProp<ViewStyle>;
 };
 
-function isSkipped(block: Block, skipping: SkippingMode): boolean {
-  if (skipping === 'none') return false;
-  return !block.isMainContent;
+type PageGroup = {
+  pageNumber: number;
+  /** Combined narration text for the page. */
+  combinedText: string;
+  /** Global index of the first block on this page (any type). */
+  firstBlockIndex: number;
+  /** Global index of the first *playable* block (respects skip mode). */
+  firstPlayableBlockIndex: number | null;
+  hasAnyPlayable: boolean;
+};
+
+function isPlayableForGrouping(block: Block, skipping: SkippingMode): boolean {
+  if (skipping === 'none') return true;
+  if (skipping === 'main-only') return block.isMainContent;
+  // 'service-only' — mirrors the playback rule in `useAudioEngine`.
+  switch (block.type) {
+    case 'page-number':
+    case 'header-footer':
+    case 'footnote':
+    case 'toc':
+    case 'service':
+      return false;
+    default:
+      return true;
+  }
+}
+
+function groupBlocksByPage(blocks: readonly Block[], skipping: SkippingMode): PageGroup[] {
+  const groups = new Map<number, PageGroup>();
+  blocks.forEach((b, i) => {
+    const p = b.page ?? 1;
+    const existing = groups.get(p);
+    const playable = isPlayableForGrouping(b, skipping);
+    if (!existing) {
+      groups.set(p, {
+        pageNumber: p,
+        combinedText: b.text,
+        firstBlockIndex: i,
+        firstPlayableBlockIndex: playable ? i : null,
+        hasAnyPlayable: playable
+      });
+    } else {
+      existing.combinedText = existing.combinedText
+        ? `${existing.combinedText}\n\n${b.text}`
+        : b.text;
+      if (playable) {
+        existing.hasAnyPlayable = true;
+        if (existing.firstPlayableBlockIndex == null) {
+          existing.firstPlayableBlockIndex = i;
+        }
+      }
+    }
+  });
+  return Array.from(groups.values()).sort((a, b) => a.pageNumber - b.pageNumber);
 }
 
 export function ReflowedList({
@@ -42,62 +94,61 @@ export function ReflowedList({
   style
 }: ReflowedListProps) {
   const { spacing } = useTheme();
-  const listRef = useRef<FlatList<Block>>(null);
-  /**
-   * Whether we've already performed the one-shot "land near the saved
-   * block" jump. Subsequent scrolls are smooth, in-window animations driven
-   * by `currentIndex` changes. Without this gate, every streaming append
-   * (which grows `blocks.length`) re-triggered the auto-scroll, producing
-   * the visible judder when opening a book.
-   */
+  const listRef = useRef<FlatList<PageGroup>>(null);
   const initialJumpDoneRef = useRef(false);
 
-  // Smooth in-session scroll: only after the initial jump is done, and only
-  // when the current index changes (not when streaming appends new blocks).
+  const pages = useMemo(() => groupBlocksByPage(blocks, skipping), [blocks, skipping]);
+
+  const currentBlock =
+    currentIndex >= 0 && currentIndex < blocks.length ? blocks[currentIndex] : undefined;
+  const currentPageNumber = currentBlock?.page ?? 1;
+  const currentPageIndex = pages.findIndex(p => p.pageNumber === currentPageNumber);
+  const erroredBlock = erroredIndex != null ? blocks[erroredIndex] : undefined;
+  const erroredPageNumber = erroredBlock?.page ?? null;
+
+  // Smooth scroll when the *page* changes during playback. Uses
+  // initialJumpDoneRef to skip the first render's animation (avoids the
+  // judder we used to get when streaming appended new pages).
   useEffect(() => {
     if (!initialJumpDoneRef.current) return;
-    if (currentIndex < 0 || currentIndex >= blocks.length) return;
+    if (currentPageIndex < 0) return;
     const list = listRef.current;
     if (!list) return;
     const id = requestAnimationFrame(() => {
       try {
-        list.scrollToIndex({ index: currentIndex, viewPosition: VIEW_POSITION, animated: true });
+        list.scrollToIndex({
+          index: currentPageIndex,
+          viewPosition: VIEW_POSITION,
+          animated: true
+        });
       } catch {
-        // Silently ignore — the next currentIndex change will try again.
+        // Will retry via the next page change.
       }
     });
     return () => cancelAnimationFrame(id);
-  }, [currentIndex, blocks.length]);
+  }, [currentPageIndex]);
 
-  // One-shot initial jump. As soon as `blocks` has enough entries to contain
-  // the saved index, scroll there *without animation* so the user doesn't see
-  // the list scrolling past every block on its way down.
+  // One-shot initial jump (no animation, no retry loop).
   useEffect(() => {
     if (initialJumpDoneRef.current) return;
-    if (currentIndex <= 0) {
-      // No saved position past the top — nothing to jump to.
+    if (currentPageIndex <= 0) {
       initialJumpDoneRef.current = true;
       return;
     }
-    if (blocks.length <= currentIndex) return;
+    if (pages.length <= currentPageIndex) return;
     const list = listRef.current;
     if (!list) return;
     initialJumpDoneRef.current = true;
-    // `scrollToOffset` with an estimated item height avoids the
-    // scrollToIndex retry loop (and its visible mid-jumps) when items
-    // haven't been measured yet.
     list.scrollToOffset({
-      offset: Math.max(0, ESTIMATED_ITEM_HEIGHT * currentIndex),
+      offset: Math.max(0, ESTIMATED_PAGE_HEIGHT * currentPageIndex),
       animated: false
     });
-  }, [blocks.length, currentIndex]);
+  }, [currentPageIndex, pages.length]);
 
   const handleScrollToIndexFailed = useCallback(
     (info: { index: number; highestMeasuredFrameIndex: number; averageItemLength: number }) => {
       const list = listRef.current;
       if (!list) return;
-      // Soft fallback: drop into the rough neighborhood without animation,
-      // and don't retry — retry loops are what cause the flicker.
       list.scrollToOffset({
         offset: Math.max(0, info.averageItemLength * info.index),
         animated: false
@@ -106,27 +157,42 @@ export function ReflowedList({
     []
   );
 
-  const renderItem = useCallback<ListRenderItem<Block>>(
-    ({ item, index }) => (
-      <BlockItem
-        block={item}
-        index={index}
-        isCurrent={index === currentIndex}
-        isSkipped={isSkipped(item, skipping)}
-        isErrored={erroredIndex === index}
-        onPress={onSelect}
-        onRetry={onRetry}
-      />
-    ),
-    [currentIndex, skipping, erroredIndex, onSelect, onRetry]
+  const handlePagePress = useCallback(
+    (pageNumber: number) => {
+      const page = pages.find(p => p.pageNumber === pageNumber);
+      if (!page) return;
+      const target = page.firstPlayableBlockIndex ?? page.firstBlockIndex;
+      if (target == null || target < 0) return;
+      onSelect(target);
+    },
+    [pages, onSelect]
   );
 
-  const keyExtractor = useCallback((b: Block) => b.id, []);
+  const handlePageRetry = useCallback(() => {
+    onRetry?.();
+  }, [onRetry]);
+
+  const renderItem = useCallback<ListRenderItem<PageGroup>>(
+    ({ item }) => (
+      <PageItem
+        pageNumber={item.pageNumber}
+        text={item.combinedText}
+        isCurrent={item.pageNumber === currentPageNumber}
+        isSkipped={!item.hasAnyPlayable}
+        isErrored={erroredPageNumber === item.pageNumber}
+        onPress={handlePagePress}
+        onRetry={handlePageRetry}
+      />
+    ),
+    [currentPageNumber, erroredPageNumber, handlePagePress, handlePageRetry]
+  );
+
+  const keyExtractor = useCallback((p: PageGroup) => `page-${p.pageNumber}`, []);
 
   return (
-    <FlatList<Block>
+    <FlatList<PageGroup>
       ref={listRef}
-      data={blocks as Block[]}
+      data={pages}
       keyExtractor={keyExtractor}
       renderItem={renderItem}
       contentContainerStyle={{
@@ -138,9 +204,8 @@ export function ReflowedList({
       onScrollToIndexFailed={handleScrollToIndexFailed}
       showsVerticalScrollIndicator={false}
       style={style}
-      // Keep enough off-screen rows around the current one so scrollToIndex hits.
-      initialNumToRender={20}
-      windowSize={11}
+      initialNumToRender={8}
+      windowSize={7}
       removeClippedSubviews={false}
     />
   );

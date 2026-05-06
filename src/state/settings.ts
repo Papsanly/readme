@@ -9,6 +9,7 @@ type SettingsState = AppSettings & {
   setSpeed: (speed: number) => void;
   setSkipping: (skipping: SkippingMode) => void;
   setTtsProvider: (provider: TtsProvider) => void;
+  setLocalVoice: (voice: string) => void;
   reset: () => void;
 };
 
@@ -17,7 +18,8 @@ const DEFAULTS: AppSettings = {
   voiceName: undefined,
   speed: 1.0,
   skipping: 'none',
-  ttsProvider: 'elevenlabs'
+  ttsProvider: 'elevenlabs',
+  localVoice: 'alloy'
 };
 
 const MIN_SPEED = 0.7;
@@ -36,6 +38,7 @@ export const useSettingsStore = create<SettingsState>()(
       setSpeed: speed => set({ speed: clampSpeed(speed) }),
       setSkipping: skipping => set({ skipping }),
       setTtsProvider: provider => set({ ttsProvider: provider }),
+      setLocalVoice: voice => set({ localVoice: voice }),
       reset: () => set({ ...DEFAULTS })
     }),
     {

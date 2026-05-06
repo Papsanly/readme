@@ -16,4 +16,6 @@ export type AppSettings = {
   speed: number;
   skipping: SkippingMode;
   ttsProvider: TtsProvider;
+  /** Voice id sent to the local server when `ttsProvider === 'local'`. */
+  localVoice?: string;
 };

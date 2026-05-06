@@ -1,8 +1,10 @@
 import { useSettingsStore } from '@/src/state/settings';
 import type { VoiceSettings } from '@/src/types/voice';
 
-import { ElevenLabsClient, getDefaultElevenLabsClient } from './elevenlabs';
+import { ElevenLabsClient, getDefaultElevenLabsClient, type TtsAlignment } from './elevenlabs';
 import { OpenAiCompatibleTtsClient } from './openaiTts';
+
+export type { TtsAlignment } from './elevenlabs';
 
 /**
  * Default URL of the bundled local TTS server (`openedai-speech` running
@@ -44,24 +46,37 @@ export type TtsSynthesizeOptions = {
   voiceSettings?: VoiceSettings;
 };
 
+/**
+ * Audio bytes plus optional per-character alignment. Providers that
+ * support timestamps (ElevenLabs) return both; providers that don't
+ * (Kokoro / openedai-speech XTTS) return only `bytes`. Callers must
+ * tolerate `alignment === undefined`.
+ */
+export type TtsSynthesizeResult = {
+  bytes: Uint8Array;
+  alignment?: TtsAlignment;
+};
+
 /** Provider-agnostic TTS surface used by the pipeline. */
 export interface TtsClient {
-  synthesize(opts: TtsSynthesizeOptions): Promise<Uint8Array>;
+  synthesize(opts: TtsSynthesizeOptions): Promise<TtsSynthesizeResult>;
 }
 
 /**
- * Wraps `ElevenLabsClient` so it implements the unified `TtsClient` interface
- * (the underlying client requires a non-optional `voiceId`, while the unified
- * surface allows it to be omitted for the local provider).
+ * Wraps `ElevenLabsClient` so it implements the unified `TtsClient`
+ * interface. Always uses the `with-timestamps` endpoint so we get a
+ * per-character alignment back — the player's word-level seek and word
+ * highlight rely on it. The cost is one JSON+base64 round-trip instead
+ * of a streaming binary, which is fine for our short blocks.
  */
 class ElevenLabsTtsAdapter implements TtsClient {
   constructor(private readonly inner: ElevenLabsClient) {}
 
-  async synthesize(opts: TtsSynthesizeOptions): Promise<Uint8Array> {
+  async synthesize(opts: TtsSynthesizeOptions): Promise<TtsSynthesizeResult> {
     if (!opts.voiceId) {
       throw new Error('ElevenLabs requires a voice — choose one in Settings → Voice.');
     }
-    return this.inner.synthesize({
+    return this.inner.synthesizeWithTimestamps({
       voiceId: opts.voiceId,
       text: opts.text,
       voiceSettings: opts.voiceSettings
@@ -70,20 +85,26 @@ class ElevenLabsTtsAdapter implements TtsClient {
 }
 
 /**
- * Wraps `OpenAiCompatibleTtsClient` and *discards* the caller's `voiceId`.
- * The audio engine passes through the voice id stored in settings (which is
- * an ElevenLabs voice id), and forwarding that to openedai-speech makes it
- * fail with `Error loading voice: <id>`. The local server has its own voice
- * baked into the client config, so we always use that.
+ * Wraps `OpenAiCompatibleTtsClient` and overrides the caller's `voiceId`
+ * with the *local* voice from settings (`localVoice`). The audio engine
+ * forwards the ElevenLabs voice id from `settings.voiceId`, which would be
+ * rejected by openedai-speech with `Error loading voice: <id>`; we ignore
+ * that and use the user's local-voice pick instead. No alignment data —
+ * XTTS-v2 / openedai-speech don't expose timestamps over the OpenAI
+ * protocol, so word-level seek falls back to the engine's char-rate
+ * estimate.
  */
 class LocalTtsAdapter implements TtsClient {
   constructor(private readonly inner: OpenAiCompatibleTtsClient) {}
 
-  async synthesize(opts: TtsSynthesizeOptions): Promise<Uint8Array> {
-    return this.inner.synthesize({
+  async synthesize(opts: TtsSynthesizeOptions): Promise<TtsSynthesizeResult> {
+    const localVoice = useSettingsStore.getState().localVoice;
+    const bytes = await this.inner.synthesize({
+      voiceId: localVoice,
       text: opts.text,
       voiceSettings: opts.voiceSettings
     });
+    return { bytes };
   }
 }
 
@@ -95,7 +116,11 @@ function getLocalClient(): TtsClient {
       new OpenAiCompatibleTtsClient({
         baseUrl: DEFAULT_LOCAL_TTS_URL,
         defaultVoice: DEFAULT_LOCAL_TTS_VOICE,
-        defaultModel: DEFAULT_LOCAL_TTS_MODEL
+        defaultModel: DEFAULT_LOCAL_TTS_MODEL,
+        // XTTS-v2 on CPU/GPU takes longer than ElevenLabs on long blocks,
+        // especially after a cold start. 3 minutes covers typical worst-case
+        // synthesis times before we declare the server unresponsive.
+        requestTimeoutMs: 180_000
       })
     );
   }

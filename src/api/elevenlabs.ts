@@ -84,6 +84,61 @@ export type SynthesizeOptions = {
   voiceSettings?: VoiceSettings;
 };
 
+/**
+ * Per-character timing emitted by ElevenLabs' `/with-timestamps` endpoint.
+ * `characters[i]` plays from `startTimesSec[i]` to `endTimesSec[i]`. The
+ * indices line up 1:1 with the original input text characters (including
+ * spaces and punctuation), so `text.charAt(i)` and `characters[i]` agree.
+ */
+export type TtsAlignment = {
+  characters: string[];
+  startTimesSec: number[];
+  endTimesSec: number[];
+};
+
+export type SynthesizeWithTimestampsResult = {
+  bytes: Uint8Array;
+  alignment: TtsAlignment;
+};
+
+type RawAlignment = {
+  characters?: unknown;
+  character_start_times_seconds?: unknown;
+  character_end_times_seconds?: unknown;
+};
+
+type RawWithTimestampsResponse = {
+  audio_base64?: unknown;
+  alignment?: RawAlignment;
+  normalized_alignment?: RawAlignment;
+};
+
+function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i += 1) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+function coerceAlignment(raw: RawAlignment | undefined): TtsAlignment | undefined {
+  if (!raw) return undefined;
+  const chars = raw.characters;
+  const starts = raw.character_start_times_seconds;
+  const ends = raw.character_end_times_seconds;
+  if (!Array.isArray(chars) || !Array.isArray(starts) || !Array.isArray(ends)) return undefined;
+  const n = Math.min(chars.length, starts.length, ends.length);
+  if (n === 0) return undefined;
+  const characters: string[] = new Array(n);
+  const startTimesSec: number[] = new Array(n);
+  const endTimesSec: number[] = new Array(n);
+  for (let i = 0; i < n; i += 1) {
+    characters[i] = typeof chars[i] === 'string' ? (chars[i] as string) : '';
+    startTimesSec[i] = typeof starts[i] === 'number' ? (starts[i] as number) : 0;
+    endTimesSec[i] = typeof ends[i] === 'number' ? (ends[i] as number) : startTimesSec[i];
+  }
+  return { characters, startTimesSec, endTimesSec };
+}
+
 type RawVoice = {
   voice_id?: unknown;
   name?: unknown;
@@ -306,6 +361,87 @@ export class ElevenLabsClient {
         });
       }
       return bytes;
+    } finally {
+      releaseTtsSlot();
+    }
+  }
+
+  /**
+   * Synthesize and return per-character alignment alongside the audio.
+   * Uses the `/with-timestamps` endpoint, which is non-streaming and
+   * returns a JSON envelope with base64 audio + alignment arrays. Same
+   * concurrency gate as `synthesize`.
+   */
+  async synthesizeWithTimestamps(opts: SynthesizeOptions): Promise<SynthesizeWithTimestampsResult> {
+    const { voiceId, text } = opts;
+    if (!voiceId) throw new ElevenLabsError('synthesizeWithTimestamps: voiceId is required');
+    if (!text) throw new ElevenLabsError('synthesizeWithTimestamps: text is required');
+
+    await acquireTtsSlot();
+    try {
+      const url =
+        `${this.baseUrl}/v1/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps` +
+        `?output_format=${DEFAULT_OUTPUT_FORMAT}`;
+
+      const body: Record<string, unknown> = {
+        text,
+        model_id: this.modelId
+      };
+      const settings = mapVoiceSettings(opts.voiceSettings);
+      if (settings) body.voice_settings = settings;
+
+      const response = await this.fetchWithTimeout(url, {
+        method: 'POST',
+        headers: {
+          'xi-api-key': this.apiKey,
+          'content-type': 'application/json',
+          accept: 'application/json'
+        },
+        body: JSON.stringify(body)
+      });
+
+      const rawBody = await response.text();
+
+      if (!response.ok) {
+        throw new ElevenLabsError(
+          `ElevenLabs TTS (with-timestamps) returned HTTP ${response.status}: ${truncate(rawBody, ERROR_BODY_TRUNCATION)}`,
+          { status: response.status }
+        );
+      }
+
+      let parsed: RawWithTimestampsResponse;
+      try {
+        parsed = JSON.parse(rawBody) as RawWithTimestampsResponse;
+      } catch (err) {
+        throw new ElevenLabsError(
+          `ElevenLabs TTS (with-timestamps) returned non-JSON body: ${truncate(rawBody, ERROR_BODY_TRUNCATION)}`,
+          { status: response.status, cause: err }
+        );
+      }
+
+      if (typeof parsed.audio_base64 !== 'string' || parsed.audio_base64.length === 0) {
+        throw new ElevenLabsError(
+          'ElevenLabs TTS (with-timestamps) response missing `audio_base64`',
+          { status: response.status }
+        );
+      }
+      const bytes = base64ToBytes(parsed.audio_base64);
+      if (bytes.byteLength === 0) {
+        throw new ElevenLabsError('ElevenLabs TTS (with-timestamps) decoded to empty audio', {
+          status: response.status
+        });
+      }
+      // Prefer the alignment that mirrors original input characters; fall
+      // back to the normalized one if the API ever drops the verbatim list.
+      const alignment =
+        coerceAlignment(parsed.alignment) ?? coerceAlignment(parsed.normalized_alignment);
+      if (!alignment) {
+        throw new ElevenLabsError(
+          'ElevenLabs TTS (with-timestamps) response missing alignment data',
+          { status: response.status }
+        );
+      }
+      return { bytes, alignment };
     } finally {
       releaseTtsSlot();
     }

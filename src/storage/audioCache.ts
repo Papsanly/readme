@@ -1,5 +1,6 @@
 import { Directory, File } from 'expo-file-system';
 
+import type { TtsAlignment } from '@/src/api/elevenlabs';
 import { paths } from '@/src/storage/paths';
 
 /** Ensure the per-book audio directory exists. Idempotent. */
@@ -46,14 +47,56 @@ export async function writeAudio(
   return uri;
 }
 
-/** Delete a single block's cached audio if present. */
+/** Delete a single block's cached audio (and its alignment) if present. */
 export async function deleteCachedAudio(bookId: string, blockId: string): Promise<void> {
-  const file = new File(paths.bookAudio(bookId, blockId));
-  if (!file.exists) return;
+  for (const uri of [paths.bookAudio(bookId, blockId), paths.bookAudioAlignment(bookId, blockId)]) {
+    const file = new File(uri);
+    if (!file.exists) continue;
+    try {
+      file.delete();
+    } catch (err) {
+      if (new File(uri).exists) throw err;
+    }
+  }
+}
+
+/** Persist a block's TTS alignment to disk next to its audio file. */
+export async function writeAlignment(
+  bookId: string,
+  blockId: string,
+  alignment: TtsAlignment
+): Promise<void> {
+  await ensureBookAudioDir(bookId);
+  const uri = paths.bookAudioAlignment(bookId, blockId);
+  const file = new File(uri);
+  if (file.exists) {
+    try {
+      file.delete();
+    } catch {
+      // Ignore — write below will surface real failures.
+    }
+  }
+  file.write(JSON.stringify(alignment));
+}
+
+/** Read a block's TTS alignment from disk. Returns `null` when no file exists. */
+export async function readAlignment(bookId: string, blockId: string): Promise<TtsAlignment | null> {
+  const uri = paths.bookAudioAlignment(bookId, blockId);
+  const file = new File(uri);
+  if (!file.exists) return null;
   try {
-    file.delete();
-  } catch (err) {
-    if (new File(paths.bookAudio(bookId, blockId)).exists) throw err;
+    const raw = await file.text();
+    const parsed = JSON.parse(raw) as TtsAlignment;
+    if (
+      Array.isArray(parsed.characters) &&
+      Array.isArray(parsed.startTimesSec) &&
+      Array.isArray(parsed.endTimesSec)
+    ) {
+      return parsed;
+    }
+    return null;
+  } catch {
+    return null;
   }
 }
 
