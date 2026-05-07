@@ -91,9 +91,18 @@ export function buildEmitBlocksToolSchema(): JsonSchema {
         type: 'integer',
         enum: [1, 2],
         description: 'Heading depth. 1 = chapter-level, 2 = sub-section. Headings only.'
+      },
+      ocrBlockIds: {
+        type: 'array',
+        items: { type: 'string' },
+        description:
+          'OCR block ids from the layout list provided in the user message. List every ' +
+          'OCR block whose visual region this narration block represents. Multiple ids when ' +
+          'you merged blocks (e.g. list items into prose). Empty array if no OCR block ' +
+          'corresponds.'
       }
     },
-    required: ['type', 'text', 'isFigure', 'isMainContent'],
+    required: ['type', 'text', 'isFigure', 'isMainContent', 'ocrBlockIds'],
     additionalProperties: false
   };
 
@@ -161,18 +170,69 @@ function bookContextSection(ctx: VlmContext): string {
 }
 
 function languageSection(language: string | undefined): string {
-  if (language) {
-    return [
-      '## Language',
-      `Narrate in ${language}. If the page contains text in another language, transliterate ` +
-        'or translate only when narration in that language would be incomprehensible to the ' +
-        'listener; otherwise preserve the original.'
-    ].join('\n');
-  }
+  const target = language
+    ? `${language}`
+    : "the dominant language of the page's body text (paragraphs, headings — " +
+      'NOT labels inside figures or stray foreign abbreviations)';
   return [
     '## Language',
-    'Match the language of the page. If the page is multilingual, keep each span in its ' +
-      'original language.'
+    `Narrate ALL output in ${target}. This applies to every \`text\` field, including:`,
+    '- Body text (paragraphs, headings, lists, captions, footnotes).',
+    '- **Figure descriptions** — the spoken description in `text` must be in the dominant',
+    '  narration language even if the labels INSIDE the figure are in a different language.',
+    '  Do not switch to English (or any other language) just because a chart axis or a UI',
+    '  screenshot has foreign text on it.',
+    '',
+    '### Foreign abbreviations, acronyms, technical terms, proper nouns',
+    '',
+    '**HARD CONSTRAINT**: the `text` field must contain ONLY characters of the target',
+    `language's alphabet (plus standard punctuation, digits, spaces). NO Latin letters,`,
+    'NO original-script foreign characters, NO mixed-alphabet artifacts. Every foreign',
+    'abbreviation, acronym, technical term, and proper noun MUST be expanded into the target',
+    "language's phonetic spelling. The verbatim original goes in `rawText` only.",
+    '',
+    '**DO NOT character-map** Latin letters to visually similar letters in the target',
+    'alphabet. Use phonetic transliteration based on how a native speaker would actually',
+    'pronounce the term. Common Latin → Russian mistakes to avoid:',
+    '- Latin **X** is pronounced **"кс"** (e.g. EXA → "экса"), NOT "х"',
+    '- Latin **C** is **"к"** or **"ц"** depending on context, NOT "с"',
+    '- Latin **H** is **"х"** or silent depending on origin, NOT "н"',
+    '- Latin **W** is **"в"**, NOT "ш"',
+    '- Latin **N** is **"н"**, NOT "и"',
+    '- Latin **Y** is **"и"** or **"й"**, NOT "у"',
+    '',
+    '**Use only standard target-alphabet letters**. For Russian use the Russian Cyrillic',
+    'alphabet (А-Я, а-я, including Ё/ё, Й/й). Do not use Ukrainian (Є, Ї, Ґ), Belarusian',
+    '(Ў), or other Cyrillic-variant letters even if they look phonetically close.',
+    '',
+    '**Word-style vs letter-style for abbreviations** — choose ONE per term:',
+    '- Pronounceable as a single word (3+ letters forming a natural syllable) →',
+    '  spell as one continuous word, NO hyphens or spaces between letters.',
+    '- Pronounced as a sequence of letter-names → spell each letter separately,',
+    '  joined with hyphens. Use this only when the term cannot be pronounced as a word.',
+    '',
+    'Examples — dominant language **Russian**:',
+    '- Word-style (no hyphens): NATO → "нато"; NASA → "наса"; AJAX → "аякс"; EXA → "экса".',
+    '- Letter-style (hyphens): USB → "ю-эс-би"; PDF → "пэ-дэ-эф"; FBI → "эф-би-ай"; HTML → "эйч-ти-эм-эл".',
+    '- Proper nouns: Apple → "эппл"; Microsoft → "майкрософт"; iPhone → "айфон".',
+    '- Diagram with English UI labels → describe in Russian, not in English.',
+    '',
+    '**WRONG examples to avoid**:',
+    '- ❌ "программа EXA" (Latin in `text`) — must be "программа экса"',
+    '- ❌ "формат PDF" (Latin in `text`) — must be "формат пэ-дэ-эф"',
+    '- ❌ "є-кс-а" or "ЄКСА" (wrong alphabet — that\'s Ukrainian Є, not Russian Э)',
+    '- ❌ "э-к-с-а" (over-hyphenated word that should be a single word "экса")',
+    '- ❌ "Mixed латиница and кириллица in one word"',
+    '',
+    'Examples — dominant language **English**:',
+    '- "the city of Moscow", `rawText`: "the city of Москва"',
+    '- "the company Yandex", `rawText`: "the company Яндекс"',
+    '- A diagram with French/Spanish/Russian labels → describe in English.',
+    '',
+    '### Exception: full-sentence quotations',
+    'A complete sentence or paragraph-length quotation in another language stays in the original',
+    "language (TTS will speak it with that language's pronunciation). Transliteration applies",
+    'only to isolated terms, abbreviations, and short technical names embedded in narration.'
   ].join('\n');
 }
 
@@ -268,10 +328,30 @@ export function buildVlmSystemPrompt(ctx: VlmContext): string {
     '',
     languageSection(ctx.language),
     '',
+    '# OCR layout reference',
+    'Alongside the page image, the user content includes a JSON list of OCR layout blocks for',
+    'this page. Each entry has `id`, `label` (e.g. "Text", "SectionHeader", "Picture",',
+    '"PageHeader"), and the raw on-page text.',
+    '',
+    'For every narration block you emit, set `ocrBlockIds` to the list of OCR ids whose visual',
+    'region the narration block represents. Powers the Original View overlay.',
+    '',
+    '- 1-to-1 paragraph match: one OCR id.',
+    '- You merged several OCR blocks (list items, table rows, chunked text) into one narration',
+    '  block: include all of them.',
+    '- For `figure` blocks: include the OCR id of the picture/diagram region (and any inner',
+    '  sub-block ids that compose the figure). Caption is a separate block per the rules above —',
+    '  give the caption block the OCR caption id.',
+    '- Service elements (page-number, header-footer, footnote, toc, service): still emit them as',
+    '  blocks per classification, with their corresponding OCR id, so overlays line up.',
+    '- If no OCR block corresponds (rare — e.g. you described a region that the layout did not',
+    '  segment), pass an empty array `[]`.',
+    '- Use each OCR id at most once across the page — no double-claiming.',
+    '',
     '# Final reminder',
     'Emit exactly one tool call to `emit_blocks`. The `blocks` array must be in narration order.',
-    'Every block must include `type`, `text`, `isFigure`, and `isMainContent`. Omit `level`,',
-    '`rawText`, and `caption` unless they apply.'
+    'Every block must include `type`, `text`, `isFigure`, `isMainContent`, and `ocrBlockIds`.',
+    'Omit `level`, `rawText`, and `caption` unless they apply.'
   ];
 
   return sections.filter(s => s.length > 0).join('\n');

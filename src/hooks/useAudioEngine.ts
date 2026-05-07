@@ -1,13 +1,12 @@
 import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { TtsAlignment } from '@/src/api/elevenlabs';
 import { getEffectiveSettings, useEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
 import { isTtsRetryable, withRetry } from '@/src/pipeline/processor';
 import { invalidateVoice, prefetchBlocks, synthesizeBlockToFile } from '@/src/pipeline/tts';
 import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
-import { hasCachedAudio, readAlignment } from '@/src/storage/audioCache';
+import { hasCachedAudio } from '@/src/storage/audioCache';
 import type { Block } from '@/src/types/book';
 import type { SkippingMode } from '@/src/types/settings';
 
@@ -82,13 +81,6 @@ export type UseAudioEngineResult = {
    * render but its return values may change as more durations are observed.
    */
   estimateBlockDuration: (block: Block) => number;
-  /**
-   * Convert a (block, character offset within its text) pair to an audio
-   * offset in seconds. Uses TTS-emitted character timestamps when the
-   * provider returned them (ElevenLabs); falls back to a proportional
-   * char-rate estimate otherwise (XTTS-v2 / local server).
-   */
-  charOffsetToAudioSec: (block: Block, charOffset: number) => number;
 };
 
 /**
@@ -242,14 +234,6 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
    */
   const knownDurationsRef = useRef<Map<string, number>>(new Map());
   const [durationsTick, setDurationsTick] = useState(0);
-  /**
-   * Per-block TTS alignment (character → audio time) loaded from disk
-   * after each block is synthesized. Populated lazily as blocks play.
-   * Provider-dependent: ElevenLabs ships alignments, the local XTTS
-   * server doesn't, so this map only ever holds entries for blocks that
-   * had alignment data when their audio was written.
-   */
-  const alignmentsRef = useRef<Map<string, TtsAlignment>>(new Map());
 
   // ----- Refs (engine internals, no re-render triggers) -------------------
   const playerRef = useRef<AudioPlayer | null>(null);
@@ -499,24 +483,10 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
           throw err;
         }
 
-        // Lazy-load the alignment file (if any) that the synth wrote next
-        // to the audio. Tap-to-seek for this block now uses real per-char
-        // timings instead of the proportional estimate.
-        void readAlignment(bookId, block.id)
-          .then(a => {
-            if (ac.signal.aborted) return;
-            if (a) alignmentsRef.current.set(block.id, a);
-          })
-          .catch(err => {
-            console.warn(
-              `[player] readAlignment failed for ${block.id}: ${err instanceof Error ? err.message : String(err)}`
-            );
-          });
-
         // Honor any pending intra-block offset requested via the player
-        // store (set by word-tap seek or resume-on-mount). Consumed once
-        // here and cleared so subsequent loads don't re-seek to the same
-        // place by accident.
+        // store (set by tap-to-seek or resume-on-mount). Consumed once here
+        // and cleared so subsequent loads don't re-seek to the same place
+        // by accident.
         const pendingOffset = usePlayerStore.getState().positionSec;
         if (pendingOffset > 0) {
           try {
@@ -806,30 +776,6 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     return Math.max(MIN_ESTIMATED_BLOCK_SEC, est);
   }, []);
 
-  const charOffsetToAudioSec = useCallback((block: Block, charOffset: number): number => {
-    const clean = Math.max(0, Math.min(block.text.length, Math.floor(charOffset)));
-    const alignment = alignmentsRef.current.get(block.id);
-    if (alignment && alignment.startTimesSec.length > 0) {
-      // TTS-emitted timestamps: index directly into the per-character
-      // start-time array (clamped to its bounds). This is the accurate
-      // path — accounts for variable speaking rate, pauses at punctuation,
-      // and word-length-dependent timing.
-      const i = Math.min(clean, alignment.startTimesSec.length - 1);
-      const t = alignment.startTimesSec[i];
-      return Number.isFinite(t) ? Math.max(0, t) : 0;
-    }
-    // No alignment (local XTTS server): proportional estimate against
-    // either the real measured duration of the block or a char-rate
-    // fallback when we haven't played the block yet.
-    const totalChars = Math.max(1, block.text.length);
-    const ratio = Math.max(0, Math.min(1, clean / totalChars));
-    const real = knownDurationsRef.current.get(block.id);
-    if (real != null && Number.isFinite(real) && real > 0) return ratio * real;
-    const charsPerSec = ESTIMATED_CHARS_PER_SECOND * Math.max(0.5, speedRef.current);
-    const blockDur = Math.max(MIN_ESTIMATED_BLOCK_SEC, totalChars / Math.max(1, charsPerSec));
-    return ratio * blockDur;
-  }, []);
-
   return {
     isReady,
     isLoadingBlock,
@@ -846,8 +792,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     goPrev,
     goNext,
     seekToBlockOffset,
-    estimateBlockDuration,
-    charOffsetToAudioSec
+    estimateBlockDuration
   };
 }
 

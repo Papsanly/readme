@@ -1,7 +1,7 @@
 import type { Voice, VoiceSettings, VoicesPage } from '@/src/types/voice';
 
 const DEFAULT_BASE_URL = 'https://api.elevenlabs.io';
-const DEFAULT_MODEL_ID = 'eleven_v3';
+const DEFAULT_MODEL_ID = 'eleven_flash_v2_5';
 const DEFAULT_TIMEOUT_MS = 60_000;
 const DEFAULT_PAGE_SIZE = 30;
 const DEFAULT_OUTPUT_FORMAT = 'mp3_44100_128';

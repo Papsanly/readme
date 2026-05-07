@@ -1,6 +1,7 @@
+import { Directory } from 'expo-file-system';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useCallback } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { SectionHeader } from '@/src/components/settings';
 import {
@@ -12,6 +13,14 @@ import {
 } from '@/src/components/ui';
 import { useEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
 import { useTheme } from '@/src/hooks/useTheme';
+import {
+  AlreadyProcessingError,
+  cancelProcessing,
+  isProcessing,
+  processBook
+} from '@/src/pipeline/processor';
+import { deleteBookOcr } from '@/src/storage/ocr';
+import { paths } from '@/src/storage/paths';
 import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
 import type { SkippingMode, TtsProvider } from '@/src/types/settings';
@@ -51,12 +60,14 @@ export default function BookSettingsScreen() {
 
   const { colors, spacing, fontSize, fontWeight } = useTheme();
   const effective = useEffectiveSettings(bookId);
+  const book = useLibraryStore(s => (bookId ? s.books[bookId] : undefined));
   const override = useLibraryStore(s => (bookId ? s.books[bookId]?.settingsOverride : undefined));
   const globalSpeed = useSettingsStore(s => s.speed);
   const globalSkipping = useSettingsStore(s => s.skipping);
   const globalTtsProvider = useSettingsStore(s => s.ttsProvider);
   const globalVoiceName = useSettingsStore(s => s.voiceName);
   const globalLocalVoice = useSettingsStore(s => s.localVoice);
+  const [reprocessing, setReprocessing] = useState(false);
 
   const setSpeedOverride = useCallback(
     (value: number | undefined) => {
@@ -102,6 +113,83 @@ export default function BookSettingsScreen() {
       router.push(`/settings/local-voice?bookId=${bookId}` as Href);
     }
   }, [bookId, effective.ttsProvider]);
+
+  const runReprocess = useCallback(async (): Promise<void> => {
+    if (!bookId || !book) return;
+    if (reprocessing) return;
+    setReprocessing(true);
+    try {
+      // Abort any in-flight job for this book before wiping its state.
+      if (isProcessing(bookId)) cancelProcessing(bookId);
+
+      // Wipe per-book caches so the new pipeline run regenerates everything
+      // from the canonical source PDF on disk. Audio is keyed by block id;
+      // since reprocessing produces fresh ids the old mp3s would be orphans
+      // anyway, so we drop the whole audio dir.
+      deleteBookOcr(bookId);
+      try {
+        const audioDir = new Directory(paths.bookAudioDir(bookId));
+        if (audioDir.exists) audioDir.delete();
+      } catch (err) {
+        console.warn(
+          `[book-settings] failed to wipe audio dir for ${bookId}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+      try {
+        const pagesDir = new Directory(paths.bookPagesDir(bookId));
+        if (pagesDir.exists) pagesDir.delete();
+      } catch (err) {
+        console.warn(
+          `[book-settings] failed to wipe pages dir for ${bookId}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      }
+
+      useLibraryStore.getState().updateBook(bookId, {
+        blocks: [],
+        coverUri: undefined,
+        processingError: undefined,
+        processingProgress: undefined,
+        status: 'queued',
+        progress: { blockIndex: 0, positionSec: 0, updatedAt: Date.now() }
+      });
+
+      // Derive ext from the book source name; fall back to pdf.
+      const extMatch = /\.([A-Za-z0-9]+)$/.exec(book.source.name);
+      const ext = (extMatch?.[1] ?? 'pdf').toLowerCase();
+      const storedUri = paths.bookSource(bookId, ext);
+
+      // Fire-and-forget: navigate to the player which will surface the
+      // streaming progress UI for the new run.
+      void processBook({
+        bookId,
+        storedUri,
+        ext,
+        title: book.title,
+        bookTitle: book.title
+      }).catch(err => {
+        if (err instanceof AlreadyProcessingError) return;
+        console.warn(
+          `[book-settings] reprocess failed for ${bookId}: ${err instanceof Error ? err.message : String(err)}`
+        );
+      });
+
+      router.replace(`/player/${bookId}` as Href);
+    } finally {
+      setReprocessing(false);
+    }
+  }, [bookId, book, reprocessing]);
+
+  const confirmReprocess = useCallback(() => {
+    if (!bookId || !book) return;
+    Alert.alert(
+      'Reprocess this book?',
+      'Wipes blocks, audio cache, page renders, and OCR for this book, then re-runs the full processing pipeline on the source file. Re-pays for VLM and OCR.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Reprocess', style: 'destructive', onPress: () => void runReprocess() }
+      ]
+    );
+  }, [bookId, book, runReprocess]);
 
   if (!bookId) return null;
 
@@ -265,6 +353,57 @@ export default function BookSettingsScreen() {
           filter and applies to the next block transition.
         </Text>
       </View>
+
+      {__DEV__ ? (
+        <>
+          <SectionHeader title="Dev tools" />
+          <View
+            style={[
+              styles.section,
+              { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.sm }
+            ]}
+          >
+            <Pressable
+              onPress={confirmReprocess}
+              disabled={reprocessing}
+              accessibilityRole="button"
+              accessibilityLabel="Reprocess book"
+              style={({ pressed }) => [
+                {
+                  paddingVertical: spacing.md,
+                  paddingHorizontal: spacing.lg,
+                  borderRadius: 12,
+                  backgroundColor: colors.bgElevated,
+                  borderWidth: 1,
+                  borderColor: colors.danger,
+                  opacity: reprocessing ? 0.5 : pressed ? 0.7 : 1,
+                  alignItems: 'center'
+                }
+              ]}
+            >
+              <Text
+                style={{
+                  color: colors.danger,
+                  fontSize: fontSize.body,
+                  fontWeight: fontWeight.semibold
+                }}
+              >
+                {reprocessing ? 'Reprocessing…' : 'Reprocess book'}
+              </Text>
+            </Pressable>
+            <Text
+              style={{
+                color: colors.textMuted,
+                fontSize: fontSize.caption,
+                lineHeight: fontSize.caption * 1.5
+              }}
+            >
+              Dev only. Wipes blocks + audio + page renders + OCR cache, then re-runs the full
+              pipeline on the stored source. Re-charges for VLM and datalab.
+            </Text>
+          </View>
+        </>
+      ) : null}
 
       <View style={{ height: spacing.xl }} />
     </Screen>

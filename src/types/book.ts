@@ -24,6 +24,13 @@ export type Block = {
   imageUri?: string;
   caption?: string;
   isMainContent: boolean;
+  /**
+   * OCR block ids (from datalab marker) that this narration block visually
+   * represents on the page. Set during processing when the VLM is given the
+   * OCR layout alongside the image. Used by the Original View to draw
+   * polygon overlays. Empty/undefined means "no overlay" (skipped block).
+   */
+  ocrBlockIds?: string[];
 };
 
 export type BookStatus = 'queued' | 'processing' | 'ready' | 'failed';

@@ -90,7 +90,7 @@ function coerceOptionalString(v: unknown): string | undefined {
 function validateVlmBlock(raw: unknown): VlmBlock | undefined {
   if (!isObject(raw)) return undefined;
 
-  const { type, text, isFigure, isMainContent, rawText, caption, level } = raw;
+  const { type, text, isFigure, isMainContent, rawText, caption, level, ocrBlockIds } = raw;
 
   if (typeof type !== 'string' || !BLOCK_TYPE_SET.has(type as BlockType)) return undefined;
   if (typeof text !== 'string' || text.length === 0) return undefined;
@@ -112,6 +112,14 @@ function validateVlmBlock(raw: unknown): VlmBlock | undefined {
 
   const lvl = coerceLevel(level);
   if (lvl) block.level = lvl;
+
+  if (Array.isArray(ocrBlockIds)) {
+    const ids: string[] = [];
+    for (const id of ocrBlockIds) {
+      if (typeof id === 'string' && id.length > 0) ids.push(id);
+    }
+    if (ids.length > 0) block.ocrBlockIds = ids;
+  }
 
   return block;
 }
@@ -159,6 +167,13 @@ export class AnthropicVlmClient implements VlmClient {
     const system = buildVlmSystemPrompt(input.context);
     const toolSchema = buildEmitBlocksToolSchema();
 
+    // OCR layout JSON — flat list, model maps narration blocks to these ids
+    // via the `ocrBlockIds` field in its tool output. Truncate per-block text
+    // so a page of long blocks doesn't blow the prompt budget.
+    const ocrJson = JSON.stringify(
+      input.ocrBlocks.map(b => ({ id: b.id, label: b.label, text: b.text.slice(0, 600) }))
+    );
+
     const body = {
       model: this.model,
       max_tokens: 8192,
@@ -177,7 +192,13 @@ export class AnthropicVlmClient implements VlmClient {
             },
             {
               type: 'text',
-              text: `Page ${input.pageNumber} of ${input.totalPages}. Emit narration blocks via the emit_blocks tool.`
+              text: [
+                `Page ${input.pageNumber} of ${input.totalPages}.`,
+                'Emit narration blocks via the emit_blocks tool.',
+                '',
+                'OCR layout blocks for this page (use the ids in your ocrBlockIds field):',
+                ocrJson
+              ].join('\n')
             }
           ]
         }
@@ -274,5 +295,6 @@ export function vlmBlockToBlock(
   if (vlm.rawText) block.rawText = vlm.rawText;
   if (vlm.caption) block.caption = vlm.caption;
   if (vlm.level) block.level = vlm.level;
+  if (vlm.ocrBlockIds && vlm.ocrBlockIds.length > 0) block.ocrBlockIds = vlm.ocrBlockIds;
   return block;
 }

@@ -3,9 +3,9 @@ import {
   clearBookAudio,
   getCachedAudioPath,
   hasCachedAudio,
-  writeAlignment,
   writeAudio
 } from '@/src/storage/audioCache';
+import { useSettingsStore } from '@/src/state/settings';
 import type { VoiceSettings } from '@/src/types/voice';
 
 const DEFAULT_PREFETCH_CONCURRENCY = 2;
@@ -49,28 +49,36 @@ export async function synthesizeBlockToFile(
   const uri = getCachedAudioPath(bookId, blockId);
 
   if (!force && (await hasCachedAudio(bookId, blockId))) {
+    console.log(`[tts] cache hit: book=${bookId} block=${blockId}`);
     return { uri, cached: true };
   }
 
-  const result = await resolveClient(client).synthesize({
-    voiceId,
-    text,
-    voiceSettings
-  });
-  const writtenUri = await writeAudio(bookId, blockId, result.bytes);
-  // Persist alignment data when the provider returned any (ElevenLabs).
-  // Local server (XTTS-v2) returns audio only — we silently skip writing
-  // the JSON, and `readAlignment` later returns `null`.
-  if (result.alignment) {
-    try {
-      await writeAlignment(bookId, blockId, result.alignment);
-    } catch (err) {
-      console.warn(
-        `[tts] writeAlignment failed for ${blockId}: ${err instanceof Error ? err.message : String(err)}`
-      );
-    }
+  const provider = useSettingsStore.getState().ttsProvider;
+  const startMs = Date.now();
+  console.log(
+    `[tts] synth start: provider=${provider} block=${blockId} chars=${text.length} voiceId=${voiceId ?? '?'}`
+  );
+
+  try {
+    const result = await resolveClient(client).synthesize({
+      voiceId,
+      text,
+      voiceSettings
+    });
+    const elapsed = Date.now() - startMs;
+    console.log(
+      `[tts] synth ok: block=${blockId} bytes=${result.bytes.length} elapsed=${elapsed}ms`
+    );
+
+    const writtenUri = await writeAudio(bookId, blockId, result.bytes);
+    return { uri: writtenUri, cached: false };
+  } catch (err) {
+    const elapsed = Date.now() - startMs;
+    console.warn(
+      `[tts] synth failed: block=${blockId} elapsed=${elapsed}ms err=${err instanceof Error ? err.message : String(err)}`
+    );
+    throw err;
   }
-  return { uri: writtenUri, cached: false };
 }
 
 /** Same as `synthesizeBlockToFile` but returns just the on-disk uri. */
@@ -102,6 +110,9 @@ export async function prefetchBlocks(
 
   let cursor = 0;
   const total = items.length;
+  console.log(
+    `[tts] prefetch start: book=${bookId} items=${total} concurrency=${concurrency} voiceId=${voiceId ?? '?'}`
+  );
 
   const worker = async (): Promise<void> => {
     while (cursor < total) {

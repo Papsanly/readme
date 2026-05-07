@@ -16,6 +16,13 @@ export type VlmBlock = {
   isMainContent: boolean;
   /** Heading depth: 1 for chapter-level, 2 for sub-section. */
   level?: 1 | 2;
+  /**
+   * OCR block ids (from the datalab layout passed alongside the image) whose
+   * visual region this narration block represents. Used for Original View
+   * polygon overlays. Empty when no OCR id corresponds (e.g. fully-skipped
+   * service elements emitted only for completeness).
+   */
+  ocrBlockIds?: string[];
 };
 
 /** Result of analyzing a single page. */
@@ -34,6 +41,13 @@ export type VlmContext = {
   language?: string;
 };
 
+/** A minimal view of an OCR block for the VLM input — id, label, raw text. */
+export type VlmOcrBlockHint = {
+  id: string;
+  label: string;
+  text: string;
+};
+
 /** Input to `VlmClient.analyzePage`. */
 export type VlmAnalyzePageInput = {
   /** Base64-encoded PNG of the page. */
@@ -41,6 +55,11 @@ export type VlmAnalyzePageInput = {
   context: VlmContext;
   pageNumber: number;
   totalPages: number;
+  /**
+   * datalab OCR layout blocks for this page. Passed in the user content
+   * alongside the image so the model can reference them via `ocrBlockIds`.
+   */
+  ocrBlocks: VlmOcrBlockHint[];
 };
 
 /** Vision-language model client used by the processing pipeline. */

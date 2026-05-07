@@ -2,7 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import type { AppSettings, SkippingMode, TtsProvider } from '@/src/types/settings';
+import type { AppSettings, SkippingMode, TtsProvider, ViewMode } from '@/src/types/settings';
 
 type SettingsState = AppSettings & {
   setVoice: (voiceId?: string, voiceName?: string) => void;
@@ -10,6 +10,7 @@ type SettingsState = AppSettings & {
   setSkipping: (skipping: SkippingMode) => void;
   setTtsProvider: (provider: TtsProvider) => void;
   setLocalVoice: (voice: string) => void;
+  setViewMode: (mode: ViewMode) => void;
   reset: () => void;
 };
 
@@ -19,7 +20,8 @@ const DEFAULTS: AppSettings = {
   speed: 1.0,
   skipping: 'none',
   ttsProvider: 'elevenlabs',
-  localVoice: 'alloy'
+  localVoice: 'alloy',
+  viewMode: 'reflowed'
 };
 
 const MIN_SPEED = 0.7;
@@ -39,6 +41,7 @@ export const useSettingsStore = create<SettingsState>()(
       setSkipping: skipping => set({ skipping }),
       setTtsProvider: provider => set({ ttsProvider: provider }),
       setLocalVoice: voice => set({ localVoice: voice }),
+      setViewMode: mode => set({ viewMode: mode }),
       reset: () => set({ ...DEFAULTS })
     }),
     {

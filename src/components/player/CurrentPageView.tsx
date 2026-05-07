@@ -1,6 +1,14 @@
 import * as Haptics from 'expo-haptics';
-import { useEffect, useMemo, useRef } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { memo, useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+  type LayoutChangeEvent,
+  type TextStyle
+} from 'react-native';
 
 import { useTheme } from '@/src/hooks/useTheme';
 import type { Block } from '@/src/types/book';
@@ -14,54 +22,19 @@ export type CurrentPageViewProps = {
   errorMessage?: string;
   /** Tap handler for the retry hint. */
   onRetry?: () => void;
-  /** Called when the user taps a word; jumps audio playback to that word. */
-  onWordTap: (blockIndex: number, offsetSec: number) => void;
-  /**
-   * Convert a (block, char offset within its text) pair to an audio
-   * offset in seconds. Backed by per-character TTS timestamps when the
-   * provider supplied them (ElevenLabs); a proportional estimate
-   * otherwise (local XTTS server).
-   */
-  charOffsetToAudioSec: (block: Block, charOffset: number) => number;
+  /** Tap on a block jumps audio to that block's start. */
+  onBlockTap: (blockIndex: number) => void;
 };
-
-type WordToken = {
-  /** Word text plus any trailing whitespace (kept together so we render one
-   *  inline `<Text>` per word, not two — halves the React node count). */
-  text: string;
-  /** Global block index this token belongs to. */
-  blockIndex: number;
-  /** 0-based char offset of the *word part* within its block's text. */
-  charOffsetInBlock: number;
-};
-
-/**
- * Match every "word + trailing whitespace" run in `text`. `(\S+)` captures
- * the word for the seek offset; `\s*` after it sweeps up the spaces so
- * they don't become their own tokens.
- */
-const WORD_TOKEN_RE = /(\S+)(\s*)/g;
-
-function tokenizeBlock(text: string, blockIndex: number, out: WordToken[]): void {
-  WORD_TOKEN_RE.lastIndex = 0;
-  let m: RegExpExecArray | null;
-  while ((m = WORD_TOKEN_RE.exec(text)) !== null) {
-    out.push({
-      text: m[0],
-      blockIndex,
-      charOffsetInBlock: m.index
-    });
-  }
-}
 
 /**
  * Displays exactly one page at a time — the page that the audio engine is
  * currently reading. As the engine crosses a page boundary, the body
- * swaps to the next page automatically. There is no scrollable list of
- * pages; navigation between pages is via the player's prev/next controls.
+ * swaps to the next page automatically.
  *
- * Each non-whitespace token is its own pressable `<Text>` — tapping a word
- * jumps audio playback to that word's estimated position in the block.
+ * Each block on the page is its own `Pressable` with onLayout-tracked
+ * y-position. On `currentIndex` change we auto-scroll the current block
+ * into view and highlight it with an accent background. Tapping a block
+ * jumps audio to the block's start.
  */
 export function CurrentPageView({
   blocks,
@@ -69,12 +42,10 @@ export function CurrentPageView({
   bottomInset,
   errorMessage,
   onRetry,
-  onWordTap,
-  charOffsetToAudioSec
+  onBlockTap
 }: CurrentPageViewProps) {
   const { colors, spacing, fontSize, fontWeight, radius } = useTheme();
 
-  // Page-identification — cheap, derived on every render.
   const safeIndex = blocks.length > 0 ? Math.min(Math.max(currentIndex, 0), blocks.length - 1) : -1;
   const pageNumber = safeIndex >= 0 ? (blocks[safeIndex]?.page ?? 1) : 0;
   const totalPages = useMemo(() => {
@@ -84,60 +55,49 @@ export function CurrentPageView({
     return all.size;
   }, [blocks]);
 
-  // Tokens recompute only when the *page* changes (or blocks list mutates),
-  // not on every block-index change within the same page. This was the
-  // bulk of the per-page-switch work — building 500–1000 React elements.
-  const tokens = useMemo<WordToken[]>(() => {
-    if (pageNumber === 0) return [];
-    const out: WordToken[] = [];
-    let firstOnPage = true;
-    for (let i = 0; i < blocks.length; i += 1) {
-      const b = blocks[i];
-      if ((b.page ?? 1) !== pageNumber) continue;
-      // Paragraph break between blocks. Attached as the last token's own
-      // trailing whitespace would mix into the seek logic, so we add it
-      // as a synthetic non-pressable token instead.
-      if (!firstOnPage) {
-        out.push({ text: '\n\n', blockIndex: i, charOffsetInBlock: -1 });
-      }
-      firstOnPage = false;
-      tokenizeBlock(b.text, i, out);
-    }
-    return out;
+  // Blocks on this page only — recomputed on page change.
+  const pageBlocks = useMemo(() => {
+    if (pageNumber === 0) return [] as Block[];
+    return blocks.filter(b => (b.page ?? 1) === pageNumber);
   }, [blocks, pageNumber]);
 
-  // Snap the ScrollView back to the top whenever the audio engine moves
-  // to a new page. We scroll via ref instead of forcing a full unmount
-  // through `key={...}` — remounting a ScrollView with hundreds of inline
-  // `<Text>` tokens was causing a multi-second freeze on long pages.
+  // ScrollView ref + per-block y tracking for auto-scroll.
   const scrollRef = useRef<ScrollView>(null);
+  const blockYRef = useRef<Map<number, number>>(new Map());
+
+  const setBlockY = useCallback((blockIndex: number, y: number) => {
+    blockYRef.current.set(blockIndex, y);
+  }, []);
+
+  // Reset scroll & layout map on page change.
   useEffect(() => {
+    blockYRef.current.clear();
     scrollRef.current?.scrollTo({ y: 0, animated: false });
   }, [pageNumber]);
 
-  // Pre-bake one stable handler per token so React reconciliation can skip
-  // unchanged Text nodes during re-renders (a fresh inline closure on
-  // every render forces every span's click listener to be re-bound on
-  // Android, eating into page-switch frame budget).
-  const blocksRef = useRef(blocks);
-  blocksRef.current = blocks;
-  const onWordTapRef = useRef(onWordTap);
-  onWordTapRef.current = onWordTap;
-  const charOffsetToAudioSecRef = useRef(charOffsetToAudioSec);
-  charOffsetToAudioSecRef.current = charOffsetToAudioSec;
-  const handlersRef = useRef<(() => void)[]>([]);
-  handlersRef.current = useMemo(
-    () =>
-      tokens.map(t => () => {
-        if (t.charOffsetInBlock < 0) return; // synthetic paragraph break
-        Haptics.selectionAsync().catch(() => {});
-        const block = blocksRef.current[t.blockIndex];
-        if (!block) return;
-        const offsetSec = charOffsetToAudioSecRef.current(block, t.charOffsetInBlock);
-        onWordTapRef.current(t.blockIndex, offsetSec);
-      }),
-    [tokens]
-  );
+  // Scroll the current block into the upper portion of the viewport when
+  // the audio engine crosses a block boundary.
+  const lastScrolledIndexRef = useRef<number>(-1);
+  useEffect(() => {
+    if (safeIndex < 0) return;
+    if (lastScrolledIndexRef.current === safeIndex) return;
+    // Defer one tick so onLayout from any newly-rendered block has run.
+    const id = setTimeout(() => {
+      const y = blockYRef.current.get(safeIndex);
+      if (y === undefined) return;
+      lastScrolledIndexRef.current = safeIndex;
+      scrollRef.current?.scrollTo({ y: Math.max(0, y - 64), animated: true });
+    }, 16);
+    return () => clearTimeout(id);
+  }, [safeIndex, pageBlocks]);
+
+  // Stable handler so memoized BlockSpan doesn't re-render when parent does.
+  const onBlockTapRef = useRef(onBlockTap);
+  onBlockTapRef.current = onBlockTap;
+  const handleBlockTap = useCallback((blockIndex: number) => {
+    Haptics.selectionAsync().catch(() => {});
+    onBlockTapRef.current(blockIndex);
+  }, []);
 
   if (totalPages === 0) return null;
 
@@ -148,7 +108,7 @@ export function CurrentPageView({
         paddingHorizontal: spacing.lg,
         paddingTop: spacing.lg,
         paddingBottom: bottomInset + spacing.lg,
-        gap: spacing.md
+        gap: spacing.sm
       }}
       showsVerticalScrollIndicator={false}
     >
@@ -157,7 +117,8 @@ export function CurrentPageView({
           styles.pageHeader,
           {
             borderBottomColor: colors.border,
-            paddingBottom: spacing.sm
+            paddingBottom: spacing.sm,
+            marginBottom: spacing.xs
           }
         ]}
       >
@@ -174,24 +135,22 @@ export function CurrentPageView({
         </Text>
       </View>
 
-      <Text
-        style={{
-          color: colors.text,
-          fontSize: fontSize.bodyLg,
-          fontWeight: fontWeight.regular,
-          lineHeight: fontSize.bodyLg * 1.5
-        }}
-      >
-        {tokens.map((t, i) =>
-          t.charOffsetInBlock < 0 ? (
-            <Text key={i}>{t.text}</Text>
-          ) : (
-            <Text key={i} onPress={handlersRef.current[i]} suppressHighlighting={false}>
-              {t.text}
-            </Text>
-          )
-        )}
-      </Text>
+      {pageBlocks.map(block => (
+        <BlockSpan
+          key={block.id}
+          block={block}
+          isCurrent={block.index === safeIndex}
+          textColor={colors.text}
+          accentColor={colors.accent}
+          fontSize={fontSize.bodyLg}
+          fontWeight={fontWeight.regular}
+          radius={radius.sm}
+          paddingH={spacing.sm}
+          paddingV={spacing.xs}
+          onTap={handleBlockTap}
+          setBlockY={setBlockY}
+        />
+      ))}
 
       {errorMessage ? (
         <Pressable
@@ -233,6 +192,94 @@ export function CurrentPageView({
       ) : null}
     </ScrollView>
   );
+}
+
+type BlockSpanProps = {
+  block: Block;
+  isCurrent: boolean;
+  textColor: string;
+  accentColor: string;
+  fontSize: number;
+  fontWeight: TextStyle['fontWeight'];
+  radius: number;
+  paddingH: number;
+  paddingV: number;
+  onTap: (blockIndex: number) => void;
+  setBlockY: (blockIndex: number, y: number) => void;
+};
+
+const BlockSpan = memo(function BlockSpan({
+  block,
+  isCurrent,
+  textColor,
+  accentColor,
+  fontSize: fs,
+  fontWeight: fw,
+  radius,
+  paddingH,
+  paddingV,
+  onTap,
+  setBlockY
+}: BlockSpanProps) {
+  const handleLayout = useCallback(
+    (e: LayoutChangeEvent) => {
+      setBlockY(block.index, e.nativeEvent.layout.y);
+    },
+    [block.index, setBlockY]
+  );
+
+  const handlePress = useCallback(() => {
+    onTap(block.index);
+  }, [block.index, onTap]);
+
+  return (
+    <Pressable
+      onPress={handlePress}
+      onLayout={handleLayout}
+      accessibilityRole="button"
+      accessibilityLabel={`Block ${block.index + 1}: ${block.text.slice(0, 80)}`}
+      style={({ pressed }) => [
+        {
+          backgroundColor: isCurrent ? withAlpha(accentColor, 0.18) : 'transparent',
+          borderRadius: radius,
+          paddingHorizontal: paddingH,
+          paddingVertical: paddingV,
+          opacity: pressed ? 0.65 : 1
+        }
+      ]}
+    >
+      <Text
+        style={{
+          color: textColor,
+          fontSize: fs,
+          fontWeight: fw,
+          lineHeight: fs * 1.5
+        }}
+      >
+        {block.text}
+      </Text>
+    </Pressable>
+  );
+});
+
+/** Overlay an alpha onto a hex color (`#RRGGBB` or `#RGB`); returns rgba string. */
+function withAlpha(color: string, alpha: number): string {
+  const m6 = /^#?([\da-fA-F]{6})$/.exec(color);
+  if (m6) {
+    const n = parseInt(m6[1], 16);
+    const r = (n >> 16) & 0xff;
+    const g = (n >> 8) & 0xff;
+    const b = n & 0xff;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  const m3 = /^#?([\da-fA-F]{3})$/.exec(color);
+  if (m3) {
+    const r = parseInt(m3[1][0] + m3[1][0], 16);
+    const g = parseInt(m3[1][1] + m3[1][1], 16);
+    const b = parseInt(m3[1][2] + m3[1][2], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return color;
 }
 
 const styles = StyleSheet.create({

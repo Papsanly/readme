@@ -4,13 +4,17 @@ import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CurrentPageView, PlayerControls } from '@/src/components/player';
+import { CurrentPageView, OriginalView, PlayerControls } from '@/src/components/player';
 import { EmptyState, IconSymbol, ProgressBar } from '@/src/components/ui';
 import { useAudioEngine } from '@/src/hooks/useAudioEngine';
+import { useOriginalView } from '@/src/hooks/useOriginalView';
 import { useTheme } from '@/src/hooks/useTheme';
 import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
+import { useSettingsStore } from '@/src/state/settings';
 import type { Book } from '@/src/types/book';
+import type { OcrPage } from '@/src/types/ocr';
+import type { ViewMode } from '@/src/types/settings';
 
 const HEADER_BUTTON_SIZE = 36;
 const CONTROLS_INSET = 220;
@@ -56,6 +60,17 @@ function ReadyScreen({ book }: { book: Book }) {
 
   const engine = useAudioEngine(book.id);
 
+  const isPdf = useMemo(() => /\.pdf$/i.test(book.source.name), [book.source.name]);
+  const persistedMode = useSettingsStore(s => s.viewMode);
+  const setPersistedMode = useSettingsStore(s => s.setViewMode);
+  // Original view requires PDF; coerce to reflowed for image/txt sources.
+  const viewMode: ViewMode = isPdf ? persistedMode : 'reflowed';
+
+  const handleToggleViewMode = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    setPersistedMode(viewMode === 'reflowed' ? 'original' : 'reflowed');
+  }, [viewMode, setPersistedMode]);
+
   const blocks = book.blocks;
   const totalBlocks = blocks.length;
   const safeIndex = totalBlocks > 0 ? Math.min(Math.max(currentBlockIndex, 0), totalBlocks - 1) : 0;
@@ -80,14 +95,12 @@ function ReadyScreen({ book }: { book: Book }) {
   }, [engine]);
 
   /**
-   * Word tapped on the current page → seek directly through the engine.
-   * `seekToBlockOffset` does a live seek if the target block is the one
-   * already loaded (works during playback, no re-synth) and falls back to
-   * a load + post-load seek for any other block.
+   * Block tapped on the current page → seek to the block start. Live-seeks
+   * if the target is the currently-loaded block, otherwise loads + plays.
    */
-  const handleWordTap = useCallback(
-    (blockIndex: number, offsetSec: number) => {
-      engine.seekToBlockOffset(blockIndex, offsetSec);
+  const handleBlockTap = useCallback(
+    (blockIndex: number) => {
+      engine.seekToBlockOffset(blockIndex, 0);
     },
     [engine]
   );
@@ -160,6 +173,22 @@ function ReadyScreen({ book }: { book: Book }) {
         description="This book is ready but contains no readable blocks."
       />
     );
+  } else if (viewMode === 'original') {
+    body = (
+      <View style={styles.list}>
+        <OriginalViewBody
+          book={book}
+          blocks={blocks}
+          currentIndex={safeIndex}
+          bottomInset={CONTROLS_INSET}
+          onBlockTap={blockIndex => engine.seekToBlockOffset(blockIndex, 0)}
+          onSwipePrev={canPrev ? engine.goPrev : undefined}
+          onSwipeNext={canNext ? engine.goNext : undefined}
+          canSwipePrev={canPrev}
+          canSwipeNext={canNext}
+        />
+      </View>
+    );
   } else {
     body = (
       <View style={styles.list}>
@@ -169,8 +198,7 @@ function ReadyScreen({ book }: { book: Book }) {
           bottomInset={CONTROLS_INSET}
           errorMessage={engine.blockError}
           onRetry={handleRetryBlock}
-          onWordTap={handleWordTap}
-          charOffsetToAudioSec={engine.charOffsetToAudioSec}
+          onBlockTap={handleBlockTap}
         />
       </View>
     );
@@ -184,7 +212,13 @@ function ReadyScreen({ book }: { book: Book }) {
       edges={['top', 'left', 'right']}
       style={[styles.screen, { backgroundColor: colors.bg }]}
     >
-      <PlayerHeader title={book.title} bookId={book.id} />
+      <PlayerHeader
+        title={book.title}
+        bookId={book.id}
+        viewMode={viewMode}
+        canToggleViewMode={isPdf}
+        onToggleViewMode={handleToggleViewMode}
+      />
       <View style={styles.body}>{body}</View>
       {showControls ? (
         <View>
@@ -211,7 +245,19 @@ function ReadyScreen({ book }: { book: Book }) {
   );
 }
 
-function PlayerHeader({ title, bookId }: { title: string; bookId?: string }) {
+function PlayerHeader({
+  title,
+  bookId,
+  viewMode,
+  canToggleViewMode,
+  onToggleViewMode
+}: {
+  title: string;
+  bookId?: string;
+  viewMode?: ViewMode;
+  canToggleViewMode?: boolean;
+  onToggleViewMode?: () => void;
+}) {
   const { colors, spacing, fontSize, fontWeight } = useTheme();
 
   const handleBack = useCallback(() => {
@@ -269,29 +315,156 @@ function PlayerHeader({ title, bookId }: { title: string; bookId?: string }) {
       >
         {title}
       </Text>
-      {bookId ? (
-        <Pressable
-          onPress={handleOpenSettings}
-          accessibilityRole="button"
-          accessibilityLabel="Reading settings"
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.headerButton,
-            {
-              width: HEADER_BUTTON_SIZE,
-              height: HEADER_BUTTON_SIZE,
-              borderRadius: HEADER_BUTTON_SIZE / 2,
-              backgroundColor: colors.bgElevated,
-              opacity: pressed ? 0.7 : 1
+      <View style={styles.headerActions}>
+        {canToggleViewMode && viewMode && onToggleViewMode ? (
+          <Pressable
+            onPress={onToggleViewMode}
+            accessibilityRole="button"
+            accessibilityLabel={
+              viewMode === 'reflowed' ? 'Switch to original view' : 'Switch to reflowed view'
             }
-          ]}
-        >
-          <IconSymbol name="gear" size={18} color={colors.text} weight="medium" />
-        </Pressable>
-      ) : (
-        <View style={{ width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE }} />
-      )}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.headerButton,
+              {
+                width: HEADER_BUTTON_SIZE,
+                height: HEADER_BUTTON_SIZE,
+                borderRadius: HEADER_BUTTON_SIZE / 2,
+                backgroundColor: colors.bgElevated,
+                opacity: pressed ? 0.7 : 1
+              }
+            ]}
+          >
+            <IconSymbol
+              name={viewMode === 'reflowed' ? 'doc.text' : 'text.alignleft'}
+              size={18}
+              color={colors.text}
+              weight="medium"
+            />
+          </Pressable>
+        ) : null}
+        {bookId ? (
+          <Pressable
+            onPress={handleOpenSettings}
+            accessibilityRole="button"
+            accessibilityLabel="Reading settings"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.headerButton,
+              {
+                width: HEADER_BUTTON_SIZE,
+                height: HEADER_BUTTON_SIZE,
+                borderRadius: HEADER_BUTTON_SIZE / 2,
+                backgroundColor: colors.bgElevated,
+                opacity: pressed ? 0.7 : 1
+              }
+            ]}
+          >
+            <IconSymbol name="gear" size={18} color={colors.text} weight="medium" />
+          </Pressable>
+        ) : (
+          <View style={{ width: HEADER_BUTTON_SIZE, height: HEADER_BUTTON_SIZE }} />
+        )}
+      </View>
     </View>
+  );
+}
+
+/**
+ * Original-view body. OCR layout is produced during book processing
+ * (alongside VLM analysis) and cached on disk; this component just reads
+ * the cache and renders the current page. Pages still being processed
+ * show a loading state; books processed before this feature shipped show
+ * an "unavailable for this book" message.
+ */
+function OriginalViewBody({
+  book,
+  blocks,
+  currentIndex,
+  bottomInset,
+  onBlockTap,
+  onSwipePrev,
+  onSwipeNext,
+  canSwipePrev,
+  canSwipeNext
+}: {
+  book: Book;
+  blocks: Book['blocks'];
+  currentIndex: number;
+  bottomInset: number;
+  onBlockTap: (vlmBlockIndex: number) => void;
+  onSwipePrev?: () => void;
+  onSwipeNext?: () => void;
+  canSwipePrev?: boolean;
+  canSwipeNext?: boolean;
+}) {
+  const { colors, fontSize, spacing } = useTheme();
+  const safeIndex = blocks.length > 0 ? Math.min(Math.max(currentIndex, 0), blocks.length - 1) : 0;
+  const currentPage = blocks[safeIndex]?.page ?? 1;
+
+  const totalPages = useMemo(() => {
+    if (blocks.length === 0) return 0;
+    let max = 0;
+    for (const b of blocks) {
+      const p = b.page ?? 1;
+      if (p > max) max = p;
+    }
+    return max;
+  }, [blocks]);
+
+  const { ocr, unsupported } = useOriginalView(book.id);
+
+  if (unsupported) {
+    return (
+      <View style={[styles.processing, { padding: spacing.xl, gap: spacing.md }]}>
+        <Text
+          style={{
+            color: colors.textMuted,
+            fontSize: fontSize.body,
+            textAlign: 'center'
+          }}
+        >
+          Original view is only available for PDF books.
+        </Text>
+      </View>
+    );
+  }
+
+  const ocrPage: OcrPage | undefined = ocr?.pages.find(p => p.pageIndex === currentPage);
+
+  if (!ocrPage || ocrPage.blocks.length === 0) {
+    const isProcessing = book.status === 'processing' || book.status === 'queued';
+    return (
+      <View style={[styles.processing, { padding: spacing.xl, gap: spacing.md }]}>
+        <Text
+          style={{
+            color: colors.textMuted,
+            fontSize: fontSize.body,
+            textAlign: 'center'
+          }}
+        >
+          {isProcessing
+            ? `Page ${currentPage} layout is still being processed…`
+            : 'Original view is unavailable for this book. Reimport it to enable overlays.'}
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <OriginalView
+      bookId={book.id}
+      blocks={blocks}
+      currentIndex={currentIndex}
+      totalPages={totalPages}
+      ocrPage={ocrPage}
+      bottomInset={bottomInset}
+      onBlockTap={onBlockTap}
+      onSwipePrev={onSwipePrev}
+      onSwipeNext={onSwipeNext}
+      canSwipePrev={canSwipePrev}
+      canSwipeNext={canSwipeNext}
+    />
   );
 }
 
@@ -400,6 +573,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth
   },
   headerButton: { alignItems: 'center', justifyContent: 'center' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8 },
   body: { flex: 1 },
   list: { flex: 1, marginTop: 8 },

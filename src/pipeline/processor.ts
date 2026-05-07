@@ -38,13 +38,16 @@
 
 import { Directory, File } from 'expo-file-system';
 
+import { getDefaultDatalabClient } from '@/src/api/datalab';
 import { getDefaultVlmClient, vlmBlockToBlock } from '@/src/api/vlm';
 import { renderPdfToPages } from '@/src/pipeline/pdf';
 import { writeCoverFromPage } from '@/src/storage/books';
+import { loadBookOcr, mergeOcrPage, rawPageToOcrPage, saveBookOcr } from '@/src/storage/ocr';
 import { paths } from '@/src/storage/paths';
 import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
 import type { Block } from '@/src/types/book';
+import type { OcrPage } from '@/src/types/ocr';
 import type { VlmClient, VlmContext, VlmPageResult } from '@/src/types/vlm';
 import { newId } from '@/src/utils/id';
 
@@ -379,6 +382,14 @@ async function streamRenderAndAnalyze(
       try {
         if (signal.aborted) return;
         const pageUri = paths.bookPage(bookId, pageNumber);
+
+        // Step 1: datalab OCR for this page. Result is persisted to BookOcr
+        // on disk so the Original View just reads the cache.
+        const ocrPage = await runOcrForPage(bookId, pageUri, pageNumber, signal);
+        if (signal.aborted) return;
+
+        // Step 2: VLM with image + OCR JSON. Model emits narration blocks
+        // with `ocrBlockIds` referencing the layout we just produced.
         const imageBase64 = await new File(pageUri).base64();
         if (signal.aborted) return;
         const result = await withRetry(
@@ -387,7 +398,8 @@ async function streamRenderAndAnalyze(
               imageBase64,
               context,
               pageNumber,
-              totalPages: renderedTotal
+              totalPages: renderedTotal,
+              ocrBlocks: ocrPage.blocks.map(b => ({ id: b.id, label: b.label, text: b.text }))
             }),
           {
             attempts: RETRY_ATTEMPTS,
@@ -445,6 +457,52 @@ async function streamRenderAndAnalyze(
   return renderedTotal;
 }
 
+/**
+ * Submit a rasterized page PNG to datalab marker, persist the resulting
+ * OCR layout to the on-disk `BookOcr`, and return the page record so the
+ * caller can pass `ocrBlocks` hints into the VLM call.
+ *
+ * Failures are non-fatal: if datalab is unavailable we return an empty
+ * page record so the VLM still runs (without OCR hints / overlay support).
+ */
+async function runOcrForPage(
+  bookId: string,
+  pageUri: string,
+  pageNumber: number,
+  signal: AbortSignal
+): Promise<OcrPage> {
+  try {
+    const datalab = getDefaultDatalabClient();
+    const raw = await withRetry(
+      () => datalab.runMarkerForPage({ pageImageUri: pageUri, pageNumber, signal }),
+      {
+        attempts: RETRY_ATTEMPTS,
+        signal,
+        isRetryable: e => isVlmRetryable(e, signal)
+      }
+    );
+    const ocrPage = rawPageToOcrPage(raw);
+    const existing = loadBookOcr(bookId);
+    const updated = mergeOcrPage(existing, bookId, ocrPage);
+    saveBookOcr(updated);
+    return ocrPage;
+  } catch (err) {
+    if (signal.aborted) throw err;
+    console.warn(
+      `[processor] datalab OCR failed for ${bookId} page ${pageNumber}: ${
+        err instanceof Error ? err.message : String(err)
+      } — continuing without OCR hints (Original View overlays will be unavailable for this page)`
+    );
+    // Empty page record so VLM proceeds without ocrBlockIds.
+    return {
+      pageIndex: pageNumber,
+      width: 0,
+      height: 0,
+      blocks: []
+    };
+  }
+}
+
 async function commitCover(bookId: string, pageUri: string): Promise<void> {
   try {
     const coverUri = await writeCoverFromPage(bookId, pageUri);
@@ -481,9 +539,17 @@ async function analyzeAndCommitPage(args: AnalyzeAndCommitArgs): Promise<void> {
   useLibraryStore.getState().updateBook(bookId, {
     processingProgress: { stage: args.onProgressLabel, done: 0, total: totalPages }
   });
+  const ocrPage = await runOcrForPage(bookId, pageUri, pageNumber, signal);
   const imageBase64 = await new File(pageUri).base64();
   const result = await withRetry(
-    () => client.analyzePage({ imageBase64, context, pageNumber, totalPages }),
+    () =>
+      client.analyzePage({
+        imageBase64,
+        context,
+        pageNumber,
+        totalPages,
+        ocrBlocks: ocrPage.blocks.map(b => ({ id: b.id, label: b.label, text: b.text }))
+      }),
     {
       attempts: RETRY_ATTEMPTS,
       signal,

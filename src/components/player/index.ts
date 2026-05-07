@@ -13,5 +13,8 @@ export type { ReflowedListProps } from './ReflowedList';
 export { CurrentPageView } from './CurrentPageView';
 export type { CurrentPageViewProps } from './CurrentPageView';
 
+export { OriginalView } from './OriginalView';
+export type { OriginalViewProps } from './OriginalView';
+
 export { PlayerControls } from './PlayerControls';
 export type { PlayerControlsProps } from './PlayerControls';

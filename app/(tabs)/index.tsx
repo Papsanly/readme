@@ -1,11 +1,9 @@
-import * as Haptics from 'expo-haptics';
 import { router, type Href } from 'expo-router';
 import { useCallback, useMemo } from 'react';
 import {
   Alert,
   FlatList,
   Platform,
-  Pressable,
   StyleSheet,
   Text,
   View,
@@ -14,15 +12,13 @@ import {
 
 import { BookCard, BookListEmpty } from '@/src/components/library';
 import { MiniPlayer } from '@/src/components/player';
-import { IconSymbol, Screen } from '@/src/components/ui';
+import { Screen } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/useTheme';
 import { cancelProcessing } from '@/src/pipeline/processor';
 import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
 import { deleteBookFiles } from '@/src/storage/books';
 import type { Book } from '@/src/types/book';
-
-const ADD_BUTTON_SIZE = 44;
 
 export default function LibraryScreen() {
   const { colors, spacing, fontSize, fontWeight } = useTheme();
@@ -36,11 +32,6 @@ export default function LibraryScreen() {
   const goToUpload = useCallback(() => {
     router.push('/(tabs)/upload');
   }, []);
-
-  const handleAddPress = useCallback(() => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
-    goToUpload();
-  }, [goToUpload]);
 
   const handleBookPress = useCallback((book: Book) => {
     // The `/player/[id]` route is added in Phase 4C; the typed-routes union
@@ -79,24 +70,6 @@ export default function LibraryScreen() {
         >
           Library
         </Text>
-        <Pressable
-          onPress={handleAddPress}
-          accessibilityRole="button"
-          accessibilityLabel="Add book"
-          hitSlop={8}
-          style={({ pressed }) => [
-            styles.addButton,
-            {
-              width: ADD_BUTTON_SIZE,
-              height: ADD_BUTTON_SIZE,
-              borderRadius: ADD_BUTTON_SIZE / 2,
-              backgroundColor: colors.accent,
-              opacity: pressed ? 0.85 : 1
-            }
-          ]}
-        >
-          <IconSymbol name="plus" size={22} color={colors.accentText} weight="semibold" />
-        </Pressable>
       </View>
 
       {sortedBooks.length === 0 ? (
@@ -204,6 +177,5 @@ async function performDelete(bookId: string): Promise<void> {
 
 const styles = StyleSheet.create({
   header: { flexDirection: 'row', alignItems: 'center' },
-  addButton: { alignItems: 'center', justifyContent: 'center' },
   emptyWrap: { flex: 1 }
 });

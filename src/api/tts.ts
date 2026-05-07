@@ -1,10 +1,8 @@
 import { useSettingsStore } from '@/src/state/settings';
 import type { VoiceSettings } from '@/src/types/voice';
 
-import { ElevenLabsClient, getDefaultElevenLabsClient, type TtsAlignment } from './elevenlabs';
+import { ElevenLabsClient, getDefaultElevenLabsClient } from './elevenlabs';
 import { OpenAiCompatibleTtsClient } from './openaiTts';
-
-export type { TtsAlignment } from './elevenlabs';
 
 /**
  * Default URL of the bundled local TTS server (`openedai-speech` running
@@ -46,15 +44,9 @@ export type TtsSynthesizeOptions = {
   voiceSettings?: VoiceSettings;
 };
 
-/**
- * Audio bytes plus optional per-character alignment. Providers that
- * support timestamps (ElevenLabs) return both; providers that don't
- * (Kokoro / openedai-speech XTTS) return only `bytes`. Callers must
- * tolerate `alignment === undefined`.
- */
+/** Audio bytes returned by the active TTS provider. */
 export type TtsSynthesizeResult = {
   bytes: Uint8Array;
-  alignment?: TtsAlignment;
 };
 
 /** Provider-agnostic TTS surface used by the pipeline. */
@@ -63,11 +55,9 @@ export interface TtsClient {
 }
 
 /**
- * Wraps `ElevenLabsClient` so it implements the unified `TtsClient`
- * interface. Always uses the `with-timestamps` endpoint so we get a
- * per-character alignment back — the player's word-level seek and word
- * highlight rely on it. The cost is one JSON+base64 round-trip instead
- * of a streaming binary, which is fine for our short blocks.
+ * Wraps `ElevenLabsClient` so it implements the unified `TtsClient` interface.
+ * Uses the regular streaming endpoint — alignment timestamps are not needed
+ * since per-word seek was removed.
  */
 class ElevenLabsTtsAdapter implements TtsClient {
   constructor(private readonly inner: ElevenLabsClient) {}
@@ -76,11 +66,15 @@ class ElevenLabsTtsAdapter implements TtsClient {
     if (!opts.voiceId) {
       throw new Error('ElevenLabs requires a voice — choose one in Settings → Voice.');
     }
-    return this.inner.synthesizeWithTimestamps({
+    console.log(
+      `[tts:elevenlabs] request voice=${opts.voiceId} chars=${opts.text.length} stability=${opts.voiceSettings?.stability ?? '?'} speed=${opts.voiceSettings?.speed ?? '?'}`
+    );
+    const bytes = await this.inner.synthesize({
       voiceId: opts.voiceId,
       text: opts.text,
       voiceSettings: opts.voiceSettings
     });
+    return { bytes };
   }
 }
 
@@ -99,6 +93,9 @@ class LocalTtsAdapter implements TtsClient {
 
   async synthesize(opts: TtsSynthesizeOptions): Promise<TtsSynthesizeResult> {
     const localVoice = useSettingsStore.getState().localVoice;
+    console.log(
+      `[tts:local] request url=${DEFAULT_LOCAL_TTS_URL} model=${DEFAULT_LOCAL_TTS_MODEL} voice=${localVoice ?? DEFAULT_LOCAL_TTS_VOICE} chars=${opts.text.length}`
+    );
     const bytes = await this.inner.synthesize({
       voiceId: localVoice,
       text: opts.text,

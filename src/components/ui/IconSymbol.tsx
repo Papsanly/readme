@@ -28,7 +28,8 @@ export const ICON_NAMES = [
   'speaker.wave.2.fill',
   'text.alignleft',
   'key.fill',
-  'tray'
+  'tray',
+  'doc.text'
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -53,7 +54,8 @@ const IONICONS_MAP: Record<IconName, IoniconName> = {
   'speaker.wave.2.fill': 'volume-high',
   'text.alignleft': 'reorder-four',
   'key.fill': 'key',
-  tray: 'file-tray'
+  tray: 'file-tray',
+  'doc.text': 'document-text'
 };
 
 export type IconSymbolProps = {
