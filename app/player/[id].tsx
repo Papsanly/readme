@@ -1,17 +1,26 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
-import { useCallback, useEffect, useMemo, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { CurrentPageView, OriginalView, PlayerControls } from '@/src/components/player';
+import {
+  CurrentPageView,
+  OriginalView,
+  OutlineSheet,
+  PlayerControls,
+  SleepTimerSheet
+} from '@/src/components/player';
 import { EmptyState, IconSymbol, ProgressBar } from '@/src/components/ui';
 import { useAudioEngine } from '@/src/hooks/useAudioEngine';
+import { useEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
 import { useOriginalView } from '@/src/hooks/useOriginalView';
+import { useSleepTimer } from '@/src/hooks/useSleepTimer';
 import { useTheme } from '@/src/hooks/useTheme';
 import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
 import { useSettingsStore } from '@/src/state/settings';
+import { formatDuration } from '@/src/utils/format';
 import type { Book } from '@/src/types/book';
 import type { OcrPage } from '@/src/types/ocr';
 import type { ViewMode } from '@/src/types/settings';
@@ -59,6 +68,11 @@ function ReadyScreen({ book }: { book: Book }) {
   const isPlaying = usePlayerStore(s => s.isPlaying);
 
   const engine = useAudioEngine(book.id);
+  const sleepTimer = useSleepTimer();
+  const effective = useEffectiveSettings(book.id);
+
+  const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
+  const [outlineOpen, setOutlineOpen] = useState(false);
 
   const isPdf = useMemo(() => /\.pdf$/i.test(book.source.name), [book.source.name]);
   const persistedMode = useSettingsStore(s => s.viewMode);
@@ -74,6 +88,54 @@ function ReadyScreen({ book }: { book: Book }) {
   const blocks = book.blocks;
   const totalBlocks = blocks.length;
   const safeIndex = totalBlocks > 0 ? Math.min(Math.max(currentBlockIndex, 0), totalBlocks - 1) : 0;
+
+  // Index of the first main-content block, or -1 when none has been observed
+  // yet. As VLM analysis streams in, the value falls into place; the button
+  // hides itself once we're already at or past that point.
+  const firstMainContentIndex = useMemo(() => {
+    for (let i = 0; i < blocks.length; i += 1) {
+      if (blocks[i]?.isMainContent) return i;
+    }
+    return -1;
+  }, [blocks]);
+
+  // Show the "Skip to main content" affordance only when:
+  //   - a main-content block exists,
+  //   - the current playback position is still strictly before it, and
+  //   - the user hasn't already opted in to `main-only` skipping (in that
+  //     mode the player already auto-skips and the button would be redundant).
+  const showSkipToMain = firstMainContentIndex > safeIndex && effective.skipping !== 'main-only';
+
+  const handleSkipToMain = useCallback(() => {
+    if (firstMainContentIndex < 0) return;
+    Haptics.selectionAsync().catch(() => {});
+    engine.seekToBlockOffset(firstMainContentIndex, 0);
+    usePlayerStore.getState().play();
+  }, [engine, firstMainContentIndex]);
+
+  const handleOutlineSelect = useCallback(
+    (blockIndex: number) => {
+      Haptics.selectionAsync().catch(() => {});
+      setOutlineOpen(false);
+      engine.seekToBlockOffset(blockIndex, 0);
+      usePlayerStore.getState().play();
+    },
+    [engine]
+  );
+
+  const handleSleepTimerPick = useCallback(
+    (minutes: number) => {
+      Haptics.selectionAsync().catch(() => {});
+      sleepTimer.start(minutes);
+      setSleepSheetOpen(false);
+    },
+    [sleepTimer]
+  );
+
+  const handleSleepTimerCancel = useCallback(() => {
+    Haptics.selectionAsync().catch(() => {});
+    sleepTimer.cancel();
+  }, [sleepTimer]);
 
   // Prev: always available (can rewind to start of current page) once the
   // book has any playable content. Next: enabled if any later page exists.
@@ -218,8 +280,15 @@ function ReadyScreen({ book }: { book: Book }) {
         viewMode={viewMode}
         canToggleViewMode={isPdf}
         onToggleViewMode={handleToggleViewMode}
+        sleepTimerActive={sleepTimer.remainingSec != null}
+        sleepTimerRemainingSec={sleepTimer.remainingSec}
+        onOpenSleepTimer={() => setSleepSheetOpen(true)}
+        onOpenOutline={() => setOutlineOpen(true)}
       />
       <View style={styles.body}>{body}</View>
+      {showSkipToMain ? (
+        <SkipToMainFab onPress={handleSkipToMain} bottomInset={CONTROLS_INSET + 16} />
+      ) : null}
       {showControls ? (
         <View>
           <PlayerControls
@@ -241,7 +310,56 @@ function ReadyScreen({ book }: { book: Book }) {
           />
         </View>
       ) : null}
+      <SleepTimerSheet
+        visible={sleepSheetOpen}
+        remainingSec={sleepTimer.remainingSec}
+        onPick={handleSleepTimerPick}
+        onCancel={handleSleepTimerCancel}
+        onClose={() => setSleepSheetOpen(false)}
+      />
+      <OutlineSheet
+        visible={outlineOpen}
+        blocks={blocks}
+        currentIndex={safeIndex}
+        onSelect={handleOutlineSelect}
+        onClose={() => setOutlineOpen(false)}
+      />
     </SafeAreaView>
+  );
+}
+
+function SkipToMainFab({ onPress, bottomInset }: { onPress: () => void; bottomInset: number }) {
+  const { colors, radius, spacing, fontSize, fontWeight } = useTheme();
+  return (
+    <View pointerEvents="box-none" style={[styles.fabWrap, { bottom: bottomInset }]}>
+      <Pressable
+        onPress={onPress}
+        accessibilityRole="button"
+        accessibilityLabel="Skip to main content"
+        style={({ pressed }) => [
+          styles.fab,
+          {
+            backgroundColor: colors.accent,
+            borderRadius: radius.lg,
+            paddingHorizontal: spacing.md,
+            paddingVertical: spacing.sm,
+            opacity: pressed ? 0.85 : 1,
+            gap: spacing.xs
+          }
+        ]}
+      >
+        <IconSymbol name="forward.fill" size={16} color={colors.accentText} weight="semibold" />
+        <Text
+          style={{
+            color: colors.accentText,
+            fontSize: fontSize.body,
+            fontWeight: fontWeight.semibold
+          }}
+        >
+          Skip to main content
+        </Text>
+      </Pressable>
+    </View>
   );
 }
 
@@ -250,13 +368,21 @@ function PlayerHeader({
   bookId,
   viewMode,
   canToggleViewMode,
-  onToggleViewMode
+  onToggleViewMode,
+  sleepTimerActive,
+  sleepTimerRemainingSec,
+  onOpenSleepTimer,
+  onOpenOutline
 }: {
   title: string;
   bookId?: string;
   viewMode?: ViewMode;
   canToggleViewMode?: boolean;
   onToggleViewMode?: () => void;
+  sleepTimerActive?: boolean;
+  sleepTimerRemainingSec?: number | null;
+  onOpenSleepTimer?: () => void;
+  onOpenOutline?: () => void;
 }) {
   const { colors, spacing, fontSize, fontWeight } = useTheme();
 
@@ -316,6 +442,66 @@ function PlayerHeader({
         {title}
       </Text>
       <View style={styles.headerActions}>
+        {onOpenOutline ? (
+          <Pressable
+            onPress={onOpenOutline}
+            accessibilityRole="button"
+            accessibilityLabel="Open outline"
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.headerButton,
+              {
+                width: HEADER_BUTTON_SIZE,
+                height: HEADER_BUTTON_SIZE,
+                borderRadius: HEADER_BUTTON_SIZE / 2,
+                backgroundColor: colors.bgElevated,
+                opacity: pressed ? 0.7 : 1
+              }
+            ]}
+          >
+            <IconSymbol name="list.bullet" size={18} color={colors.text} weight="medium" />
+          </Pressable>
+        ) : null}
+        {onOpenSleepTimer ? (
+          <Pressable
+            onPress={onOpenSleepTimer}
+            accessibilityRole="button"
+            accessibilityLabel={sleepTimerActive ? 'Sleep timer active' : 'Set sleep timer'}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.headerButton,
+              sleepTimerActive ? styles.headerButtonPill : null,
+              {
+                height: HEADER_BUTTON_SIZE,
+                width: sleepTimerActive ? undefined : HEADER_BUTTON_SIZE,
+                borderRadius: HEADER_BUTTON_SIZE / 2,
+                backgroundColor: sleepTimerActive ? colors.accent : colors.bgElevated,
+                opacity: pressed ? 0.7 : 1,
+                paddingHorizontal: sleepTimerActive ? spacing.sm : 0,
+                gap: 4
+              }
+            ]}
+          >
+            <IconSymbol
+              name="moon.zzz"
+              size={18}
+              color={sleepTimerActive ? colors.accentText : colors.text}
+              weight="medium"
+            />
+            {sleepTimerActive && sleepTimerRemainingSec != null ? (
+              <Text
+                style={{
+                  color: colors.accentText,
+                  fontSize: fontSize.caption,
+                  fontWeight: fontWeight.semibold
+                }}
+                numberOfLines={1}
+              >
+                {formatDuration(sleepTimerRemainingSec)}
+              </Text>
+            ) : null}
+          </Pressable>
+        ) : null}
         {canToggleViewMode && viewMode && onToggleViewMode ? (
           <Pressable
             onPress={onToggleViewMode}
@@ -573,9 +759,25 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth
   },
   headerButton: { alignItems: 'center', justifyContent: 'center' },
+  headerButtonPill: { flexDirection: 'row' },
   headerActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   headerTitle: { flex: 1, textAlign: 'center', marginHorizontal: 8 },
   body: { flex: 1 },
   list: { flex: 1, marginTop: 8 },
-  processing: { flex: 1, alignItems: 'stretch', justifyContent: 'center' }
+  processing: { flex: 1, alignItems: 'stretch', justifyContent: 'center' },
+  fabWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    alignItems: 'center'
+  },
+  fab: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8
+  }
 });

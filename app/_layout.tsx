@@ -63,6 +63,10 @@ export default function RootLayout() {
             options={{ headerShown: true, title: 'Local voice' }}
           />
           <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
+          <Stack.Screen
+            name="settings/backup"
+            options={{ headerShown: true, title: 'Backup & restore' }}
+          />
         </Stack>
         <PdfRendererHost />
       </SafeAreaProvider>

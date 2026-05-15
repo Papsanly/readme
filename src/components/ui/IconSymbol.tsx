@@ -29,7 +29,14 @@ export const ICON_NAMES = [
   'text.alignleft',
   'key.fill',
   'tray',
-  'doc.text'
+  'doc.text',
+  'moon.zzz',
+  'list.bullet',
+  'forward.fill',
+  'arrow.down.circle',
+  'square.and.arrow.up',
+  'square.and.arrow.down',
+  'trash'
 ] as const;
 
 export type IconName = (typeof ICON_NAMES)[number];
@@ -55,7 +62,14 @@ const IONICONS_MAP: Record<IconName, IoniconName> = {
   'text.alignleft': 'reorder-four',
   'key.fill': 'key',
   tray: 'file-tray',
-  'doc.text': 'document-text'
+  'doc.text': 'document-text',
+  'moon.zzz': 'moon',
+  'list.bullet': 'list',
+  'forward.fill': 'play-skip-forward',
+  'arrow.down.circle': 'arrow-down-circle',
+  'square.and.arrow.up': 'share-outline',
+  'square.and.arrow.down': 'download-outline',
+  trash: 'trash'
 };
 
 export type IconSymbolProps = {

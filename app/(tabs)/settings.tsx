@@ -30,6 +30,7 @@ export default function SettingsScreen() {
   const goSkipping = () => router.push('/settings/skipping' as Href);
   const goTtsProvider = () => router.push('/settings/tts-provider' as Href);
   const goAbout = () => router.push('/settings/about' as Href);
+  const goBackup = () => router.push('/settings/backup' as Href);
 
   return (
     <Screen scroll padded={false}>
@@ -76,6 +77,11 @@ export default function SettingsScreen() {
           onPress={goSkipping}
           showSeparator={false}
         />
+      </View>
+
+      <SectionHeader title="Library" />
+      <View style={{ backgroundColor: colors.bgElevated }}>
+        <ListItem title="Backup & restore" onPress={goBackup} showSeparator={false} />
       </View>
 
       <SectionHeader title="About" />

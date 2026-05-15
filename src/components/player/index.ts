@@ -18,3 +18,9 @@ export type { OriginalViewProps } from './OriginalView';
 
 export { PlayerControls } from './PlayerControls';
 export type { PlayerControlsProps } from './PlayerControls';
+
+export { SleepTimerSheet } from './SleepTimerSheet';
+export type { SleepTimerSheetProps } from './SleepTimerSheet';
+
+export { OutlineSheet } from './OutlineSheet';
+export type { OutlineSheetProps } from './OutlineSheet';

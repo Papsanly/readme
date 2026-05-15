@@ -3,7 +3,7 @@ import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { SectionHeader } from '@/src/components/settings';
+import { OfflineSection, SectionHeader } from '@/src/components/settings';
 import {
   ListItem,
   Screen,
@@ -353,6 +353,9 @@ export default function BookSettingsScreen() {
           filter and applies to the next block transition.
         </Text>
       </View>
+
+      <SectionHeader title="Offline" />
+      <OfflineSection bookId={bookId} />
 
       {__DEV__ ? (
         <>
