@@ -11,7 +11,7 @@ System_Boundary(readme, "ReadMe") {
   ContainerDb(localfs, "Локальне сховище", "Файлова система пристрою + AsyncStorage", "Документи, кеш аудіо-фрагментів, метадані бібліотеки, налаштування")
 
   Container(api, "App Server", "Node.js + TypeScript", "Оркестрація пайплайну, автентифікація, валідація IAP, агрегація streaming-результатів")
-  Container(ml, "ML-підсистема", "Python + gRPC/HTTP", "Інтерфейс до Marker та VLM; на post-MVP — self-hosted інференс дистильованої моделі")
+  Container(ml, "ML-підсистема", "Python + gRPC/HTTP", "Інтерфейс до Marker; self-hosted інференс дистильованої student-VLM")
   ContainerDb(db, "База даних", "PostgreSQL", "Акаунти користувачів, статуси підписок")
 }
 

@@ -13,7 +13,7 @@ Deployment_Node(cloud, "Хмарна інфраструктура", "AWS / GCP �
     Container(apiContainer, "App Server", "Node.js + TypeScript у Docker-контейнері", "Оркестрація пайплайну, auth, IAP-валідація")
   }
   Deployment_Node(gpuNode, "GPU-інстанси", "EC2 G-family або Runpod, автоскейлінг під навантаження") {
-    Container(mlContainer, "ML-підсистема", "Python + CUDA у Docker-контейнері", "Marker + VLM-інференс (на post-MVP — дистильована student-модель)")
+    Container(mlContainer, "ML-підсистема", "Python + CUDA у Docker-контейнері", "Marker + інференс дистильованої student-VLM")
   }
   Deployment_Node(dbNode, "БД-інстанс", "Managed PostgreSQL (RDS / Cloud SQL)") {
     ContainerDb(dbInstance, "PostgreSQL", "PostgreSQL 16", "Акаунти, статуси підписок")
