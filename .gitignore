@@ -42,3 +42,9 @@ app-example
 # generated native folders
 /ios
 /android
+
+# editor
+.zed/
+
+# typst paper build artifacts
+docs/paper/output/
