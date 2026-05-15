@@ -1,0 +1,39 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+title Діаграма контейнерів системи ReadMe (C4 Level 2)
+
+Person(user, "Користувач", "Слухач довгого тексту в аудіо-форматі")
+
+System_Boundary(readme, "ReadMe") {
+  Container(mobile, "Мобільний застосунок", "React Native + Expo + TypeScript", "Завантаження документів, бібліотека, плеєр, кешування аудіо")
+  ContainerDb(localfs, "Локальне сховище", "Файлова система пристрою + AsyncStorage", "Документи, кеш аудіо-фрагментів, метадані бібліотеки, налаштування")
+
+  Container(api, "App Server", "Node.js + TypeScript", "Оркестрація пайплайну, автентифікація, валідація IAP, агрегація streaming-результатів")
+  Container(ml, "ML-підсистема", "Python + gRPC/HTTP", "Інтерфейс до Marker та VLM; на post-MVP — self-hosted інференс дистильованої моделі")
+  ContainerDb(db, "База даних", "PostgreSQL", "Акаунти користувачів, статуси підписок")
+}
+
+System_Ext(elevenlabs, "ElevenLabs", "Streaming TTS API")
+System_Ext(datalab, "datalab.to (Marker)", "Document Layout API")
+System_Ext(vlm, "VLM-провайдер", "Claude Sonnet (Anthropic)")
+System_Ext(oauth, "OAuth-провайдер", "Google / Apple")
+System_Ext(store, "App Store / Google Play", "In-App Purchase")
+
+Rel(user, mobile, "Взаємодіє з UI", "iOS / Android")
+Rel(mobile, localfs, "Читає/записує", "expo-file-system")
+Rel(mobile, api, "JWT-автентифіковані запити, streaming", "HTTPS / WebSocket")
+Rel(mobile, store, "Купує підписку, отримує квитанцію", "In-App Purchase SDK")
+Rel(mobile, oauth, "Логін", "OAuth 2.0")
+
+Rel(api, db, "Зберігає акаунти та статуси підписок", "SQL")
+Rel(api, ml, "Передає сторінку, отримує (bbox_id, tts_text)", "gRPC / HTTP")
+Rel(api, elevenlabs, "Синтезує аудіо-фрагменти блоків", "WebSocket Streaming")
+Rel(api, store, "Валідує квитанції IAP", "HTTPS")
+Rel(api, oauth, "Верифікує OAuth-токен", "HTTPS")
+
+Rel(ml, datalab, "Bbox-розкладка сторінки", "HTTPS / REST")
+Rel(ml, vlm, "Семантична нормалізація сторінки", "HTTPS / SDK")
+
+@enduml

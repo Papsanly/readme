@@ -1,0 +1,60 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+LAYOUT_WITH_LEGEND()
+title Діаграма розгортання системи ReadMe
+
+Deployment_Node(device, "Пристрій користувача", "iOS 15+ / Android 8+") {
+  Container(mobileApp, "Мобільний застосунок", "React Native + Expo", "Бібліотека, плеєр, локальне сховище")
+}
+
+Deployment_Node(cloud, "Хмарна інфраструктура", "AWS / GCP — Kubernetes / Docker Compose") {
+  Deployment_Node(cpuNode, "CPU-інстанси", "EC2 t-family / GKE n-pool, горизонтальне автоскейлінг") {
+    Container(apiContainer, "App Server", "Node.js + TypeScript у Docker-контейнері", "Оркестрація пайплайну, auth, IAP-валідація")
+  }
+  Deployment_Node(gpuNode, "GPU-інстанси", "EC2 G-family або Runpod, автоскейлінг під навантаження") {
+    Container(mlContainer, "ML-підсистема", "Python + CUDA у Docker-контейнері", "Marker + VLM-інференс (на post-MVP — дистильована student-модель)")
+  }
+  Deployment_Node(dbNode, "БД-інстанс", "Managed PostgreSQL (RDS / Cloud SQL)") {
+    ContainerDb(dbInstance, "PostgreSQL", "PostgreSQL 16", "Акаунти, статуси підписок")
+  }
+}
+
+Deployment_Node(distApple, "Apple TestFlight", "Apple distribution channel") {
+  Container(ipa, "iOS-пакет", ".ipa, підписаний Apple Developer-сертифікатом", "Збірка EAS Build")
+}
+Deployment_Node(distGoogle, "Google Internal App Sharing", "Google Play distribution channel") {
+  Container(apk, "Android-пакет", ".apk / .aab, підписаний keystore", "Збірка EAS Build")
+}
+
+Deployment_Node(ci, "CI / EAS Build", "GitHub Actions + Expo Application Services") {
+  Container(build, "Build pipeline", "Lint → Typecheck → Test → EAS Build", "Збирає iOS та Android пакети за тегом версії")
+}
+
+Deployment_Node(externalCloud, "Зовнішні хмарні сервіси", "SaaS") {
+  Container(elevenlabs, "ElevenLabs", "Cloud TTS", "Streaming-синтез аудіо")
+  Container(datalab, "datalab.to", "Cloud OCR", "Marker layout API")
+  Container(anthropic, "Anthropic", "Cloud LLM", "Claude Sonnet (VLM)")
+  Container(oauth, "OAuth-провайдер", "Google / Apple")
+  Container(stores, "App Store / Google Play", "IAP server-side validation")
+}
+
+Rel(build, distApple, "Публікує .ipa", "EAS Submit")
+Rel(build, distGoogle, "Публікує .aab", "EAS Submit")
+Rel(distApple, mobileApp, "Завантаження бета-збірки", "TestFlight")
+Rel(distGoogle, mobileApp, "Завантаження бета-збірки", "Internal Sharing")
+
+Rel(mobileApp, apiContainer, "HTTPS + WebSocket", "JWT")
+Rel(mobileApp, oauth, "OAuth login")
+Rel(mobileApp, stores, "In-App Purchase SDK")
+
+Rel(apiContainer, dbInstance, "SQL")
+Rel(apiContainer, mlContainer, "gRPC / HTTP")
+Rel(apiContainer, elevenlabs, "WebSocket Streaming")
+Rel(apiContainer, stores, "Валідує квитанції")
+Rel(apiContainer, oauth, "Верифікує токен")
+
+Rel(mlContainer, datalab, "REST")
+Rel(mlContainer, anthropic, "Anthropic SDK")
+
+@enduml

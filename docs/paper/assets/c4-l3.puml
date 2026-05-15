@@ -1,0 +1,50 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+title Діаграма компонентів App Server (C4 Level 3)
+
+Container(mobile, "Мобільний застосунок", "React Native + Expo", "Клієнт")
+ContainerDb(db, "База даних", "PostgreSQL", "Акаунти, підписки")
+Container(ml, "ML-підсистема", "Python", "Marker + VLM")
+System_Ext(elevenlabs, "ElevenLabs", "Streaming TTS API")
+System_Ext(oauth, "OAuth-провайдер", "Google / Apple")
+System_Ext(store, "App Store / Google Play", "IAP validation")
+
+Container_Boundary(api, "App Server (Node.js + TypeScript)") {
+  Component(gateway, "API Gateway", "Express / Fastify + WebSocket", "Маршрутизація HTTP-запитів, WebSocket-сесії, JWT middleware")
+  Component(auth, "Auth Service", "TypeScript", "Видача та валідація JWT, верифікація OAuth-токенів, refresh-цикл")
+  Component(sub, "Subscription Service", "TypeScript", "Валідація квитанцій IAP, синхронізація статусу підписки, перевірка перед обробкою")
+
+  Component(orchestrator, "Pipeline Orchestrator", "async-генератори", "FIFO-черга обробки, AbortController, retry з експоненційним відкатом, статуси книги")
+  Component(segmenter, "Document Segmenter", "TypeScript", "Сегментує документ на сторінки, рендерить PDF у растрові зображення")
+  Component(prompt, "Prompt Builder", "TypeScript", "Будує системний промпт VLM: режим пропуску, мова, словник вимови")
+  Component(markerClient, "Marker Client", "HTTP-клієнт", "Запит до datalab.to через ML-підсистему, отримання bbox-розкладки")
+  Component(vlmClient, "VLM Client", "Anthropic SDK / HTTP", "Запит до VLM з контекстом Marker, парсинг tool-use відповіді")
+  Component(ttsDispatcher, "TTS Dispatcher", "WebSocket-клієнт", "Семафор concurrency, диспетчеризація запитів до ElevenLabs")
+  Component(aggregator, "Streaming Aggregator", "async-генератори", "Агрегує bbox+аудіо у потік до клієнта через WebSocket")
+}
+
+Rel(mobile, gateway, "HTTPS REST + WebSocket", "JWT")
+Rel(gateway, auth, "Авторизує запит")
+Rel(gateway, sub, "Перевіряє активну підписку")
+Rel(gateway, orchestrator, "Ініціює обробку документа")
+Rel(gateway, aggregator, "Streaming-відповідь")
+
+Rel(auth, oauth, "Верифікує OAuth-токен", "HTTPS")
+Rel(auth, db, "Користувачі", "SQL")
+Rel(sub, store, "Валідує квитанції", "HTTPS")
+Rel(sub, db, "Підписки", "SQL")
+
+Rel(orchestrator, segmenter, "Передає документ")
+Rel(orchestrator, markerClient, "Запит на bbox-розкладку")
+Rel(orchestrator, vlmClient, "Запит на семантичну нормалізацію")
+Rel(orchestrator, ttsDispatcher, "Передає блок для синтезу")
+Rel(orchestrator, aggregator, "Передає результати")
+
+Rel(vlmClient, prompt, "Отримує системний промпт")
+Rel(markerClient, ml, "gRPC / HTTP")
+Rel(vlmClient, ml, "gRPC / HTTP")
+Rel(ttsDispatcher, elevenlabs, "WebSocket Streaming")
+
+@enduml

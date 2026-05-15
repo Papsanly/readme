@@ -1,0 +1,24 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+title Контекстна діаграма системи ReadMe (C4 Level 1)
+
+Person(user, "Користувач", "Слухач довгого тексту в аудіо-форматі: студент, дослідник, читач non-fiction")
+
+System(readme, "ReadMe", "Мобільний застосунок для генерації аудіокниг з документів довільних форматів за допомогою VLM-семантичного пайплайну")
+
+System_Ext(elevenlabs, "ElevenLabs", "Streaming TTS API: синтез мови з нормалізованого тексту")
+System_Ext(datalab, "datalab.to (Marker)", "Document Layout API: bbox-розкладка блоків сторінки")
+System_Ext(vlm, "VLM-провайдер", "Claude Sonnet (Anthropic) — vision-language інференс із tool-use")
+System_Ext(oauth, "OAuth-провайдер", "Зовнішня автентифікація (Google, Apple)")
+System_Ext(store, "App Store / Google Play", "In-App Purchase: підписка та валідація квитанцій")
+
+Rel(user, readme, "Завантажує документи, слухає аудіо, керує налаштуваннями", "iOS / Android")
+Rel(readme, elevenlabs, "Синтезує аудіо-фрагменти блоків", "HTTPS / WebSocket")
+Rel(readme, datalab, "Отримує bbox-розкладку сторінок", "HTTPS / REST")
+Rel(readme, vlm, "Зіставляє bbox з нормалізованим текстом", "HTTPS / SDK")
+Rel(readme, oauth, "Автентифікує користувача", "OAuth 2.0")
+Rel(readme, store, "Валідує квитанції In-App Purchase", "HTTPS")
+
+@enduml

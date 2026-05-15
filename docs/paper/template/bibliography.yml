@@ -1,0 +1,158 @@
+# Bibliography for the diploma — DSTU 8302:2015 format (handled by csl).
+
+# --- Vision-language models / multimodal ---
+liu2023llava:
+  type: article
+  language: en
+  author:
+    - "Haotian Liu"
+    - "Chunyuan Li"
+    - "Qingyang Wu"
+    - "Yong Jae Lee"
+  title: "Visual Instruction Tuning"
+  parent:
+    type: proceedings
+    title: "Advances in Neural Information Processing Systems"
+  date: 2023
+  url: "https://arxiv.org/abs/2304.08485"
+
+bai2025qwen25vl:
+  type: article
+  language: en
+  author:
+    - "Shuai Bai"
+    - "Keqin Chen"
+    - "Xuejing Liu"
+  title: "Qwen2.5-VL Technical Report"
+  publisher:
+    name: "arXiv"
+  date: 2025
+  url: "https://arxiv.org/abs/2502.13923"
+
+# --- Knowledge distillation ---
+hinton2015distill:
+  type: article
+  language: en
+  author:
+    - "Geoffrey Hinton"
+    - "Oriol Vinyals"
+    - "Jeff Dean"
+  title: "Distilling the Knowledge in a Neural Network"
+  publisher:
+    name: "arXiv"
+  date: 2015
+  url: "https://arxiv.org/abs/1503.02531"
+
+gou2021distillsurvey:
+  type: article
+  language: en
+  author:
+    - "Jianping Gou"
+    - "Baosheng Yu"
+    - "Stephen J. Maybank"
+    - "Dacheng Tao"
+  title: "Knowledge Distillation: A Survey"
+  parent:
+    type: periodical
+    title: "International Journal of Computer Vision"
+  date: 2021
+  page-range: 1789–1819
+  url: "https://arxiv.org/abs/2006.05525"
+
+# --- Document understanding / OCR ---
+huang2022layoutlmv3:
+  type: article
+  language: en
+  author:
+    - "Yupan Huang"
+    - "Tengchao Lv"
+    - "Lei Cui"
+    - "Yutong Lu"
+    - "Furu Wei"
+  title: "LayoutLMv3: Pre-training for Document AI with Unified Text and Image Masking"
+  parent:
+    type: proceedings
+    title: "Proceedings of the 30th ACM International Conference on Multimedia"
+  date: 2022
+  url: "https://arxiv.org/abs/2204.08387"
+
+# --- Text-to-speech / speech synthesis ---
+tan2021ttssurvey:
+  type: article
+  language: en
+  author:
+    - "Xu Tan"
+    - "Tao Qin"
+    - "Frank Soong"
+    - "Tie-Yan Liu"
+  title: "A Survey on Neural Speech Synthesis"
+  publisher:
+    name: "arXiv"
+  date: 2021
+  url: "https://arxiv.org/abs/2106.15561"
+
+# --- Tooling and platforms used in the project ---
+elevenlabs-docs:
+  type: web
+  language: en
+  title: "ElevenLabs Text-to-Speech API Documentation"
+  publisher:
+    name: "ElevenLabs"
+  date: 2026
+  url: "https://elevenlabs.io/docs/api-reference/text-to-speech"
+
+datalab-docs:
+  type: web
+  language: en
+  title: "Datalab Document Understanding API"
+  publisher:
+    name: "Datalab"
+  date: 2026
+  url: "https://documentation.datalab.to/"
+
+react-native-docs:
+  type: web
+  language: en
+  title: "React Native Documentation"
+  publisher:
+    name: "Meta Platforms"
+  date: 2026
+  url: "https://reactnative.dev/docs/getting-started"
+
+expo-docs:
+  type: web
+  language: en
+  title: "Expo SDK Documentation"
+  publisher:
+    name: "Expo"
+  date: 2026
+  url: "https://docs.expo.dev"
+
+huggingface-transformers:
+  type: web
+  language: en
+  author: "Thomas Wolf et al."
+  title: "Transformers: State-of-the-Art Natural Language Processing"
+  publisher:
+    name: "Hugging Face"
+  date: 2026
+  url: "https://huggingface.co/docs/transformers"
+
+# --- Standards / norm-control ---
+dstu-8302-2015:
+  type: report
+  language: uk
+  title: "ДСТУ 8302:2015. Інформація та документація. Бібліографічне посилання. Загальні положення та правила складання"
+  publisher:
+    name: "ДП «УкрНДНЦ»"
+    location: "Київ"
+  date: 2016
+
+dstu-3008-2015:
+  type: report
+  language: uk
+  title: "ДСТУ 3008:2015. Інформація та документація. Звіти у сфері науки і техніки. Структура та правила оформлювання"
+  publisher:
+    name: "ДП «УкрНДНЦ»"
+    location: "Київ"
+  date: 2015

@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL"
+                  xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI"
+                  xmlns:dc="http://www.omg.org/spec/DD/20100524/DC"
+                  xmlns:di="http://www.omg.org/spec/DD/20100524/DI"
+                  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                  id="Definitions_1"
+                  targetNamespace="http://bpmn.io/schema/bpmn">
+  <bpmn:signal id="Signal_BookReady" name="Книга готова (перша сторінка зафіксована)" />
+  <bpmn:collaboration id="Collaboration_1">
+    <bpmn:participant id="Participant_Main" name="Мобільний застосунок ReadMe" processRef="Process_Main" />
+    <bpmn:participant id="Participant_Marker" name="datalab.to (Marker)" />
+    <bpmn:participant id="Participant_VLM" name="VLM (Claude Sonnet)" />
+    <bpmn:participant id="Participant_TTS" name="ElevenLabs / Kokoro" />
+    <bpmn:messageFlow id="Msg_M1_Out" sourceRef="Task_AnalyzeFirstPage" targetRef="Participant_Marker" />
+    <bpmn:messageFlow id="Msg_M1_In" sourceRef="Participant_Marker" targetRef="Task_AnalyzeFirstPage" />
+    <bpmn:messageFlow id="Msg_V1_Out" sourceRef="Task_AnalyzeFirstPage" targetRef="Participant_VLM" />
+    <bpmn:messageFlow id="Msg_V1_In" sourceRef="Participant_VLM" targetRef="Task_AnalyzeFirstPage" />
+    <bpmn:messageFlow id="Msg_M2_Out" sourceRef="Task_AnalyzeRest" targetRef="Participant_Marker" />
+    <bpmn:messageFlow id="Msg_M2_In" sourceRef="Participant_Marker" targetRef="Task_AnalyzeRest" />
+    <bpmn:messageFlow id="Msg_V2_Out" sourceRef="Task_AnalyzeRest" targetRef="Participant_VLM" />
+    <bpmn:messageFlow id="Msg_V2_In" sourceRef="Participant_VLM" targetRef="Task_AnalyzeRest" />
+    <bpmn:messageFlow id="Msg_T_Out" sourceRef="Task_PlayBlock" targetRef="Participant_TTS" />
+    <bpmn:messageFlow id="Msg_T_In" sourceRef="Participant_TTS" targetRef="Task_PlayBlock" />
+  </bpmn:collaboration>
+  <bpmn:process id="Process_Main" isExecutable="false">
+    <bpmn:laneSet id="LaneSet_1">
+      <bpmn:lane id="Lane_User" name="Користувач">
+        <bpmn:flowNodeRef>StartEvent_1</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Upload</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_UI" name="Мобільний застосунок (UI)">
+        <bpmn:flowNodeRef>Task_Store</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Init</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Split</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Join</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_1</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Pipeline" name="Pipeline (фоновий потік)">
+        <bpmn:flowNodeRef>Task_Segment</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Image</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_Render</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_Merge</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AnalyzeFirstPage</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>ThrowEvent_BookReady</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_AnalyzeRest</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_PipelineDone</bpmn:flowNodeRef>
+      </bpmn:lane>
+      <bpmn:lane id="Lane_Player" name="Player (фоновий потік)">
+        <bpmn:flowNodeRef>CatchEvent_BookReady</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Task_PlayBlock</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>Gateway_HasNext</bpmn:flowNodeRef>
+        <bpmn:flowNodeRef>EndEvent_PlayerDone</bpmn:flowNodeRef>
+      </bpmn:lane>
+    </bpmn:laneSet>
+
+    <bpmn:startEvent id="StartEvent_1" name="Початок" />
+    <bpmn:userTask id="Task_Upload" name="Завантажує документ (файл / URL)" />
+    <bpmn:task id="Task_Store" name="Зберігає у локальній бібліотеці" />
+    <bpmn:task id="Task_Init" name="Ініціює streaming-обробку" />
+    <bpmn:parallelGateway id="Gateway_Split" />
+
+    <bpmn:task id="Task_Segment" name="Сегментує документ на сторінки" />
+    <bpmn:exclusiveGateway id="Gateway_Image" name="Image-based?" />
+    <bpmn:task id="Task_Render" name="Рендерить PDF→PNG (pdf.js у WebView)" />
+    <bpmn:exclusiveGateway id="Gateway_Merge" />
+    <bpmn:serviceTask id="Task_AnalyzeFirstPage" name="Аналіз сторінки 1: Marker + VLM (з ocrBlocks), commit блоків" />
+    <bpmn:intermediateThrowEvent id="ThrowEvent_BookReady" name="Книга готова">
+      <bpmn:signalEventDefinition signalRef="Signal_BookReady" />
+    </bpmn:intermediateThrowEvent>
+    <bpmn:serviceTask id="Task_AnalyzeRest" name="Аналіз решти сторінок: Marker + VLM (паралельно до 2 одночасно, commit у порядку сторінок)">
+      <bpmn:multiInstanceLoopCharacteristics isSequential="false" />
+    </bpmn:serviceTask>
+    <bpmn:endEvent id="EndEvent_PipelineDone" name="Обробку завершено" />
+
+    <bpmn:intermediateCatchEvent id="CatchEvent_BookReady" name="Очікує сигнал «Книга готова»">
+      <bpmn:signalEventDefinition signalRef="Signal_BookReady" />
+    </bpmn:intermediateCatchEvent>
+    <bpmn:task id="Task_PlayBlock" name="Синтез TTS поточного блоку (on-demand) + prefetch наступних, кешування у локальне сховище, відтворення" />
+    <bpmn:exclusiveGateway id="Gateway_HasNext" name="Є наступний блок?" />
+    <bpmn:endEvent id="EndEvent_PlayerDone" name="Відтворення завершено" />
+
+    <bpmn:parallelGateway id="Gateway_Join" />
+    <bpmn:endEvent id="EndEvent_1" name="Кінець" />
+
+    <bpmn:sequenceFlow id="Flow_1" sourceRef="StartEvent_1" targetRef="Task_Upload" />
+    <bpmn:sequenceFlow id="Flow_2" sourceRef="Task_Upload" targetRef="Task_Store" />
+    <bpmn:sequenceFlow id="Flow_3" sourceRef="Task_Store" targetRef="Task_Init" />
+    <bpmn:sequenceFlow id="Flow_4" sourceRef="Task_Init" targetRef="Gateway_Split" />
+
+    <bpmn:sequenceFlow id="Flow_5" sourceRef="Gateway_Split" targetRef="Task_Segment" />
+    <bpmn:sequenceFlow id="Flow_6" sourceRef="Task_Segment" targetRef="Gateway_Image" />
+    <bpmn:sequenceFlow id="Flow_7_Yes" sourceRef="Gateway_Image" targetRef="Task_Render" name="так" />
+    <bpmn:sequenceFlow id="Flow_8" sourceRef="Task_Render" targetRef="Gateway_Merge" />
+    <bpmn:sequenceFlow id="Flow_9_No" sourceRef="Gateway_Image" targetRef="Gateway_Merge" name="ні (txt/html)" />
+    <bpmn:sequenceFlow id="Flow_10" sourceRef="Gateway_Merge" targetRef="Task_AnalyzeFirstPage" />
+    <bpmn:sequenceFlow id="Flow_11" sourceRef="Task_AnalyzeFirstPage" targetRef="ThrowEvent_BookReady" />
+    <bpmn:sequenceFlow id="Flow_12" sourceRef="ThrowEvent_BookReady" targetRef="Task_AnalyzeRest" />
+    <bpmn:sequenceFlow id="Flow_13" sourceRef="Task_AnalyzeRest" targetRef="EndEvent_PipelineDone" />
+
+    <bpmn:sequenceFlow id="Flow_14" sourceRef="Gateway_Split" targetRef="CatchEvent_BookReady" />
+    <bpmn:sequenceFlow id="Flow_15" sourceRef="CatchEvent_BookReady" targetRef="Task_PlayBlock" />
+    <bpmn:sequenceFlow id="Flow_16" sourceRef="Task_PlayBlock" targetRef="Gateway_HasNext" />
+    <bpmn:sequenceFlow id="Flow_17_Yes" sourceRef="Gateway_HasNext" targetRef="Task_PlayBlock" name="так" />
+    <bpmn:sequenceFlow id="Flow_18_No" sourceRef="Gateway_HasNext" targetRef="EndEvent_PlayerDone" name="ні / стоп користувача" />
+
+    <bpmn:sequenceFlow id="Flow_19" sourceRef="EndEvent_PipelineDone" targetRef="Gateway_Join" />
+    <bpmn:sequenceFlow id="Flow_20" sourceRef="EndEvent_PlayerDone" targetRef="Gateway_Join" />
+    <bpmn:sequenceFlow id="Flow_21" sourceRef="Gateway_Join" targetRef="EndEvent_1" />
+  </bpmn:process>
+
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Collaboration_1">
+      <bpmndi:BPMNShape id="Participant_Main_di" bpmnElement="Participant_Main" isHorizontal="true">
+        <dc:Bounds x="160" y="60" width="1820" height="440" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_User_di" bpmnElement="Lane_User" isHorizontal="true">
+        <dc:Bounds x="190" y="60" width="1790" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_UI_di" bpmnElement="Lane_UI" isHorizontal="true">
+        <dc:Bounds x="190" y="160" width="1790" height="100" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Pipeline_di" bpmnElement="Lane_Pipeline" isHorizontal="true">
+        <dc:Bounds x="190" y="260" width="1790" height="120" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Lane_Player_di" bpmnElement="Lane_Player" isHorizontal="true">
+        <dc:Bounds x="190" y="380" width="1790" height="120" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Participant_Marker_di" bpmnElement="Participant_Marker" isHorizontal="true">
+        <dc:Bounds x="160" y="540" width="1820" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_VLM_di" bpmnElement="Participant_VLM" isHorizontal="true">
+        <dc:Bounds x="160" y="620" width="1820" height="60" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Participant_TTS_di" bpmnElement="Participant_TTS" isHorizontal="true">
+        <dc:Bounds x="160" y="700" width="1820" height="60" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="240" y="92" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="234" y="135" width="50" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Upload_di" bpmnElement="Task_Upload">
+        <dc:Bounds x="320" y="70" width="120" height="80" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Store_di" bpmnElement="Task_Store">
+        <dc:Bounds x="480" y="170" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Init_di" bpmnElement="Task_Init">
+        <dc:Bounds x="640" y="170" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Split_di" bpmnElement="Gateway_Split">
+        <dc:Bounds x="800" y="185" width="50" height="50" />
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Task_Segment_di" bpmnElement="Task_Segment">
+        <dc:Bounds x="900" y="280" width="120" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Image_di" bpmnElement="Gateway_Image" isMarkerVisible="true">
+        <dc:Bounds x="1055" y="295" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1045" y="352" width="70" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_Render_di" bpmnElement="Task_Render">
+        <dc:Bounds x="1150" y="280" width="140" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_Merge_di" bpmnElement="Gateway_Merge" isMarkerVisible="true">
+        <dc:Bounds x="1320" y="295" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AnalyzeFirstPage_di" bpmnElement="Task_AnalyzeFirstPage">
+        <dc:Bounds x="1400" y="280" width="160" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="ThrowEvent_BookReady_di" bpmnElement="ThrowEvent_BookReady">
+        <dc:Bounds x="1592" y="302" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1580" y="345" width="60" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_AnalyzeRest_di" bpmnElement="Task_AnalyzeRest">
+        <dc:Bounds x="1660" y="280" width="180" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_PipelineDone_di" bpmnElement="EndEvent_PipelineDone">
+        <dc:Bounds x="1880" y="302" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1865" y="345" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="CatchEvent_BookReady_di" bpmnElement="CatchEvent_BookReady">
+        <dc:Bounds x="807" y="412" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="785" y="455" width="80" height="28" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Task_PlayBlock_di" bpmnElement="Task_PlayBlock">
+        <dc:Bounds x="900" y="390" width="220" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Gateway_HasNext_di" bpmnElement="Gateway_HasNext" isMarkerVisible="true">
+        <dc:Bounds x="1170" y="405" width="50" height="50" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1155" y="462" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_PlayerDone_di" bpmnElement="EndEvent_PlayerDone">
+        <dc:Bounds x="1880" y="412" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1865" y="455" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNShape id="Gateway_Join_di" bpmnElement="Gateway_Join">
+        <dc:Bounds x="1900" y="185" width="50" height="50" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="EndEvent_1_di" bpmnElement="EndEvent_1">
+        <dc:Bounds x="1980" y="192" width="36" height="36" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1980" y="235" width="40" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNShape>
+
+      <bpmndi:BPMNEdge id="Flow_1_di" bpmnElement="Flow_1">
+        <di:waypoint x="276" y="110" />
+        <di:waypoint x="320" y="110" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_2_di" bpmnElement="Flow_2">
+        <di:waypoint x="380" y="150" />
+        <di:waypoint x="380" y="210" />
+        <di:waypoint x="480" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_3_di" bpmnElement="Flow_3">
+        <di:waypoint x="600" y="210" />
+        <di:waypoint x="640" y="210" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_4_di" bpmnElement="Flow_4">
+        <di:waypoint x="760" y="210" />
+        <di:waypoint x="800" y="210" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_5_di" bpmnElement="Flow_5">
+        <di:waypoint x="825" y="235" />
+        <di:waypoint x="825" y="320" />
+        <di:waypoint x="900" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_6_di" bpmnElement="Flow_6">
+        <di:waypoint x="1020" y="320" />
+        <di:waypoint x="1055" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_7_Yes_di" bpmnElement="Flow_7_Yes">
+        <di:waypoint x="1105" y="320" />
+        <di:waypoint x="1150" y="320" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1110" y="302" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_8_di" bpmnElement="Flow_8">
+        <di:waypoint x="1290" y="320" />
+        <di:waypoint x="1320" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_9_No_di" bpmnElement="Flow_9_No">
+        <di:waypoint x="1080" y="295" />
+        <di:waypoint x="1080" y="270" />
+        <di:waypoint x="1345" y="270" />
+        <di:waypoint x="1345" y="295" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1170" y="250" width="80" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_10_di" bpmnElement="Flow_10">
+        <di:waypoint x="1370" y="320" />
+        <di:waypoint x="1400" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_11_di" bpmnElement="Flow_11">
+        <di:waypoint x="1560" y="320" />
+        <di:waypoint x="1592" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_12_di" bpmnElement="Flow_12">
+        <di:waypoint x="1628" y="320" />
+        <di:waypoint x="1660" y="320" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13_di" bpmnElement="Flow_13">
+        <di:waypoint x="1840" y="320" />
+        <di:waypoint x="1880" y="320" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_14_di" bpmnElement="Flow_14">
+        <di:waypoint x="825" y="235" />
+        <di:waypoint x="825" y="430" />
+        <di:waypoint x="807" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_15_di" bpmnElement="Flow_15">
+        <di:waypoint x="843" y="430" />
+        <di:waypoint x="900" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_16_di" bpmnElement="Flow_16">
+        <di:waypoint x="1120" y="430" />
+        <di:waypoint x="1170" y="430" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_17_Yes_di" bpmnElement="Flow_17_Yes">
+        <di:waypoint x="1195" y="405" />
+        <di:waypoint x="1195" y="380" />
+        <di:waypoint x="1010" y="380" />
+        <di:waypoint x="1010" y="390" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1100" y="362" width="20" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_18_No_di" bpmnElement="Flow_18_No">
+        <di:waypoint x="1220" y="430" />
+        <di:waypoint x="1880" y="430" />
+        <bpmndi:BPMNLabel>
+          <dc:Bounds x="1500" y="412" width="120" height="14" />
+        </bpmndi:BPMNLabel>
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Flow_19_di" bpmnElement="Flow_19">
+        <di:waypoint x="1916" y="320" />
+        <di:waypoint x="1925" y="320" />
+        <di:waypoint x="1925" y="235" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_20_di" bpmnElement="Flow_20">
+        <di:waypoint x="1916" y="430" />
+        <di:waypoint x="1925" y="430" />
+        <di:waypoint x="1925" y="235" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_21_di" bpmnElement="Flow_21">
+        <di:waypoint x="1950" y="210" />
+        <di:waypoint x="1980" y="210" />
+      </bpmndi:BPMNEdge>
+
+      <bpmndi:BPMNEdge id="Msg_M1_Out_di" bpmnElement="Msg_M1_Out">
+        <di:waypoint x="1450" y="360" />
+        <di:waypoint x="1450" y="540" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_M1_In_di" bpmnElement="Msg_M1_In">
+        <di:waypoint x="1480" y="540" />
+        <di:waypoint x="1480" y="360" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_V1_Out_di" bpmnElement="Msg_V1_Out">
+        <di:waypoint x="1510" y="360" />
+        <di:waypoint x="1510" y="620" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_V1_In_di" bpmnElement="Msg_V1_In">
+        <di:waypoint x="1540" y="620" />
+        <di:waypoint x="1540" y="360" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_M2_Out_di" bpmnElement="Msg_M2_Out">
+        <di:waypoint x="1720" y="360" />
+        <di:waypoint x="1720" y="540" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_M2_In_di" bpmnElement="Msg_M2_In">
+        <di:waypoint x="1750" y="540" />
+        <di:waypoint x="1750" y="360" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_V2_Out_di" bpmnElement="Msg_V2_Out">
+        <di:waypoint x="1780" y="360" />
+        <di:waypoint x="1780" y="620" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_V2_In_di" bpmnElement="Msg_V2_In">
+        <di:waypoint x="1810" y="620" />
+        <di:waypoint x="1810" y="360" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_T_Out_di" bpmnElement="Msg_T_Out">
+        <di:waypoint x="1000" y="470" />
+        <di:waypoint x="1000" y="700" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Msg_T_In_di" bpmnElement="Msg_T_In">
+        <di:waypoint x="1040" y="700" />
+        <di:waypoint x="1040" y="470" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
