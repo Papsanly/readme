@@ -8,10 +8,13 @@
  *   2. Queue: enqueue the work onto a global FIFO tail so only one book is
  *      processed at a time.
  *   3. Stream: branch on the source extension.
- *      - `pdf`:        rasterize via the WebView host at scale 1.5 and start
- *                      VLM analysis on each page as soon as it is rendered.
- *      - `png` / `jpg`: copy the source as page 1 then run a single VLM call.
- *      - `txt`:        read the file, split into paragraphs, no VLM.
+ *      - `pdf`:               rasterize via the WebView host at scale 1.5 and
+ *                             start VLM analysis on each page as soon as it
+ *                             is rendered.
+ *      - `png/jpg/webp/gif`:  copy the source as page 1, then run a single
+ *                             VLM call with the matching media_type.
+ *      - `txt/html`:          read the file, strip HTML if applicable, split
+ *                             into paragraphs, no VLM.
  *      As pages finish analysis, blocks are appended to the book in
  *      page-number order. The book flips to `status: 'ready'` after page 1's
  *      blocks are committed — the user can start listening immediately while
@@ -48,7 +51,7 @@ import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
 import type { Block } from '@/src/types/book';
 import type { OcrPage } from '@/src/types/ocr';
-import type { VlmClient, VlmContext, VlmPageResult } from '@/src/types/vlm';
+import type { VlmClient, VlmContext, VlmImageMimeType, VlmPageResult } from '@/src/types/vlm';
 import { newId } from '@/src/utils/id';
 
 /** Concurrent in-flight VLM requests per book. */
@@ -189,8 +192,8 @@ async function runProcessBook(
       processingProgress: { stage: 'rendering', done: 0, total: 0 }
     });
 
-    if (ext === 'txt') {
-      const blocks = await processTxt(storedUri);
+    if (ext === 'txt' || ext === 'html' || ext === 'htm') {
+      const blocks = await processTextLike(storedUri, ext);
       useLibraryStore.getState().updateBook(bookId, {
         blocks,
         status: 'ready',
@@ -242,8 +245,11 @@ type StreamFlowState = {
   blocks: Block[];
 };
 
-async function processTxt(storedUri: string): Promise<Block[]> {
-  const text = await new File(storedUri).text();
+async function processTextLike(storedUri: string, ext: string): Promise<Block[]> {
+  let text = await new File(storedUri).text();
+  if (ext === 'html' || ext === 'htm') {
+    text = htmlToPlainText(text);
+  }
   const paragraphs = splitTxtParagraphs(text);
   return paragraphs.map((paragraph, i) => ({
     id: newId('blk'),
@@ -260,6 +266,67 @@ function splitTxtParagraphs(text: string): string[] {
     .map(p => p.trim())
     .filter(p => p.length > 0);
 }
+
+const HTML_ENTITY_MAP: Readonly<Record<string, string>> = {
+  amp: '&',
+  lt: '<',
+  gt: '>',
+  quot: '"',
+  apos: "'",
+  nbsp: ' '
+};
+
+/**
+ * Strip HTML to plain text without bringing in a parser dep. Good enough for
+ * narration: drops script/style content, replaces block tags with newlines so
+ * paragraph boundaries survive, then decodes the common named entities.
+ */
+function htmlToPlainText(html: string): string {
+  // Remove script/style blocks wholesale — never read aloud.
+  const stripped = html
+    .replace(/<script[\s\S]*?<\/script>/gi, '')
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    // Block-level closers become paragraph breaks.
+    .replace(/<\/(?:p|div|section|article|li|h[1-6]|blockquote|tr)>/gi, '\n\n')
+    // Hard line breaks inside block elements.
+    .replace(/<br\s*\/?>/gi, '\n')
+    // Anything else goes — strip every remaining tag.
+    .replace(/<[^>]+>/g, '')
+    // Numeric entities → unicode codepoints.
+    .replace(/&#(\d+);/g, (_, code: string) => {
+      const n = parseInt(code, 10);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : '';
+    })
+    .replace(/&#x([0-9a-f]+);/gi, (_, code: string) => {
+      const n = parseInt(code, 16);
+      return Number.isFinite(n) ? String.fromCodePoint(n) : '';
+    })
+    // Named entities — only the handful that matter for narration.
+    .replace(/&([a-z]+);/gi, (match, name: string) => {
+      const v = HTML_ENTITY_MAP[name.toLowerCase()];
+      return v ?? match;
+    });
+  // Collapse runs of whitespace inside lines.
+  return stripped.replace(/[ \t]+/g, ' ');
+}
+
+function imageMimeTypeForExt(ext: string): VlmImageMimeType {
+  switch (ext) {
+    case 'png':
+      return 'image/png';
+    case 'jpg':
+    case 'jpeg':
+      return 'image/jpeg';
+    case 'gif':
+      return 'image/gif';
+    case 'webp':
+      return 'image/webp';
+    default:
+      return 'image/png';
+  }
+}
+
+const IMAGE_EXTS: ReadonlySet<string> = new Set(['png', 'jpg', 'jpeg', 'gif', 'webp']);
 
 type StreamInput = {
   bookId: string;
@@ -284,7 +351,7 @@ async function streamRenderAndAnalyze(
 ): Promise<number> {
   const { bookId, storedUri, ext, context } = input;
 
-  if (ext === 'png' || ext === 'jpg') {
+  if (IMAGE_EXTS.has(ext)) {
     ensureDirectory(paths.bookPagesDir(bookId));
     const pageUri = paths.bookPage(bookId, 1);
     copyFile(storedUri, pageUri);
@@ -296,6 +363,7 @@ async function streamRenderAndAnalyze(
       bookId,
       pageNumber: 1,
       pageUri,
+      imageMimeType: imageMimeTypeForExt(ext),
       totalPages: 1,
       context,
       flow,
@@ -520,6 +588,8 @@ type AnalyzeAndCommitArgs = {
   bookId: string;
   pageNumber: number;
   pageUri: string;
+  /** Defaults to `image/png` (the PDF render output). Set for native image sources. */
+  imageMimeType?: VlmImageMimeType;
   totalPages: number;
   context: VlmContext;
   flow: StreamFlowState;
@@ -534,7 +604,8 @@ type AnalyzeAndCommitArgs = {
  * exactly one page and no streaming order to manage.
  */
 async function analyzeAndCommitPage(args: AnalyzeAndCommitArgs): Promise<void> {
-  const { bookId, pageNumber, pageUri, totalPages, context, flow, signal, client } = args;
+  const { bookId, pageNumber, pageUri, imageMimeType, totalPages, context, flow, signal, client } =
+    args;
   throwIfAborted(signal);
   useLibraryStore.getState().updateBook(bookId, {
     processingProgress: { stage: args.onProgressLabel, done: 0, total: totalPages }
@@ -545,6 +616,7 @@ async function analyzeAndCommitPage(args: AnalyzeAndCommitArgs): Promise<void> {
     () =>
       client.analyzePage({
         imageBase64,
+        imageMimeType,
         context,
         pageNumber,
         totalPages,

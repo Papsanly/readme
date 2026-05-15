@@ -186,7 +186,7 @@ export class AnthropicVlmClient implements VlmClient {
               type: 'image',
               source: {
                 type: 'base64',
-                media_type: 'image/png',
+                media_type: input.imageMimeType ?? 'image/png',
                 data: input.imageBase64
               }
             },

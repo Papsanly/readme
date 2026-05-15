@@ -48,10 +48,18 @@ export type VlmOcrBlockHint = {
   text: string;
 };
 
+/**
+ * Image MIME types accepted by the Anthropic vision API. Other source
+ * formats must be converted to one of these before calling `analyzePage`.
+ */
+export type VlmImageMimeType = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
+
 /** Input to `VlmClient.analyzePage`. */
 export type VlmAnalyzePageInput = {
-  /** Base64-encoded PNG of the page. */
+  /** Base64-encoded image bytes (must match `imageMimeType`). */
   imageBase64: string;
+  /** MIME type of `imageBase64`. Defaults to `image/png` if omitted. */
+  imageMimeType?: VlmImageMimeType;
   context: VlmContext;
   pageNumber: number;
   totalPages: number;

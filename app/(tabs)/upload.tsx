@@ -17,14 +17,18 @@ import {
 } from '@/src/storage/books';
 import type { Book, BookSource } from '@/src/types/book';
 
-const FILE_PICKER_TYPES = ['application/pdf', 'image/*', 'text/plain'];
+const FILE_PICKER_TYPES = ['application/pdf', 'image/*', 'text/plain', 'text/html'];
 
 const MIME_BY_EXT: Readonly<Record<SupportedExtension, string>> = {
   pdf: 'application/pdf',
   png: 'image/png',
   jpg: 'image/jpeg',
   jpeg: 'image/jpeg',
-  txt: 'text/plain'
+  webp: 'image/webp',
+  gif: 'image/gif',
+  txt: 'text/plain',
+  html: 'text/html',
+  htm: 'text/html'
 };
 
 type FileInput = { kind: 'file'; asset: DocumentPicker.DocumentPickerAsset };
@@ -111,7 +115,7 @@ export default function UploadScreen() {
         <UploadOptionCard
           icon="arrow.up.doc"
           title="Pick a file"
-          description="PDF, image, or text"
+          description="PDF, image (PNG/JPG/WEBP/GIF), HTML, or text"
           onPress={() => {
             void handlePickFile();
           }}
@@ -120,7 +124,7 @@ export default function UploadScreen() {
         <UploadOptionCard
           icon="link"
           title="From URL"
-          description="Paste a link to a PDF or image"
+          description="Paste a link to a document, image, or HTML page"
           onPress={handleOpenUrl}
           disabled={busy}
         />

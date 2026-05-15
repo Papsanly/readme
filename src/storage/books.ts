@@ -5,8 +5,18 @@ import { newId } from '@/src/utils/id';
 
 const HEAD_TIMEOUT_MS = 15_000;
 
-/** Canonical extensions accepted as book sources in the MVP. */
-export const SUPPORTED_EXTENSIONS = ['pdf', 'png', 'jpg', 'jpeg', 'txt'] as const;
+/** Canonical extensions accepted as book sources. */
+export const SUPPORTED_EXTENSIONS = [
+  'pdf',
+  'png',
+  'jpg',
+  'jpeg',
+  'webp',
+  'gif',
+  'txt',
+  'html',
+  'htm'
+] as const;
 export type SupportedExtension = (typeof SUPPORTED_EXTENSIONS)[number];
 
 const EXT_BY_MIME: Readonly<Record<string, SupportedExtension>> = {
@@ -14,7 +24,11 @@ const EXT_BY_MIME: Readonly<Record<string, SupportedExtension>> = {
   'image/png': 'png',
   'image/jpeg': 'jpg',
   'image/jpg': 'jpg',
-  'text/plain': 'txt'
+  'image/webp': 'webp',
+  'image/gif': 'gif',
+  'text/plain': 'txt',
+  'text/html': 'html',
+  'application/xhtml+xml': 'html'
 };
 
 const SUPPORTED_SET: ReadonlySet<string> = new Set(SUPPORTED_EXTENSIONS);
@@ -61,9 +75,10 @@ function lowerExt(name: string): string | undefined {
 function normalizeExt(raw: string | undefined): SupportedExtension | undefined {
   if (!raw) return undefined;
   const v = raw.toLowerCase();
-  // Canonicalize `jpeg` → `jpg` so all JPEG inputs (filename or mime) land at
-  // the same on-disk path.
+  // Canonicalize `jpeg` → `jpg` and `htm` → `html` so equivalent inputs land
+  // at the same on-disk slot.
   if (v === 'jpeg') return 'jpg';
+  if (v === 'htm') return 'html';
   return SUPPORTED_SET.has(v) ? (v as SupportedExtension) : undefined;
 }
 
