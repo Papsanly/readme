@@ -1,12 +1,12 @@
 #import "template/main.typ": diploma
 #import "template/title-internship.typ": title-page as title-internship
-#import "template/title-with-cipher.typ": title-with-cipher
-#import "template/title-part2-software.typ": title-part2-software
+// #import "template/title-with-cipher.typ": title-with-cipher
+// #import "template/title-part2-software.typ": title-part2-software
 #import "data.typ": *
 
 #show: diploma
 
-// 1. Internship title page
+// 1. Титульна сторінка звіту з практики
 #title-internship(
   course: course,
   group: group,
@@ -27,43 +27,44 @@
 
 #pagebreak(weak: true)
 
-// 2. Part 1 — Технічне завдання
-#title-with-cipher(
-  title: title,
-  subtitle: "Технічне завдання",
-  cipher: cipher-tz,
-  dept-head-name: dept-head-name,
-  head-name: head-name,
-  norm-control-name: norm-control-name,
-  author-name: author-short,
-  year: year,
-)
+// 2. Технічне завдання без окремої титульної сторінки
+// Титульну сторінку ТЗ тимчасово закоментовано.
+// #title-with-cipher(
+//   title: title,
+//   subtitle: "Технічне завдання",
+//   cipher: cipher-tz,
+//   dept-head-name: dept-head-name,
+//   head-name: head-name,
+//   norm-control-name: norm-control-name,
+//   author-name: author-short,
+//   year: year,
+// )
 
 #include "parts/part1-spec/main.typ"
 
 #pagebreak(weak: true)
 
-// 3. Part 2 — Пояснювальна записка
-#title-part2-software(
-  title: title,
-  cipher: cipher-pz,
-  year: year,
-)
+// 3. Пояснювальна записка без окремої титульної сторінки
+// Титульну сторінку ПЗ тимчасово закоментовано.
+// #title-part2-software(
+//   title: title,
+//   cipher: cipher-pz,
+//   year: year,
+// )
 
 #include "parts/part2-software/main.typ"
 
-#pagebreak(weak: true)
-
-// 4. Part 3 — Текст програми
-#title-with-cipher(
-  title: title,
-  subtitle: "Текст програми",
-  cipher: cipher-tp,
-  dept-head-name: dept-head-name,
-  head-name: head-name,
-  norm-control-name: norm-control-name,
-  author-name: author-short,
-  year: year,
-)
+// 4. Текст програми без окремої титульної сторінки
+// Титульну сторінку тексту програми тимчасово закоментовано.
+// #title-with-cipher(
+//   title: title,
+//   subtitle: "Текст програми",
+//   cipher: cipher-tp,
+//   dept-head-name: dept-head-name,
+//   head-name: head-name,
+//   norm-control-name: norm-control-name,
+//   author-name: author-short,
+//   year: year,
+// )
 
 #include "parts/part3-program/main.typ"

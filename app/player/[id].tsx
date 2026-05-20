@@ -1,7 +1,7 @@
 import * as Haptics from 'expo-haptics';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
@@ -13,7 +13,6 @@ import {
 } from '@/src/components/player';
 import { EmptyState, IconSymbol, ProgressBar } from '@/src/components/ui';
 import { useAudioEngine } from '@/src/hooks/useAudioEngine';
-import { useEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
 import { useOriginalView } from '@/src/hooks/useOriginalView';
 import { useSleepTimer } from '@/src/hooks/useSleepTimer';
 import { useTheme } from '@/src/hooks/useTheme';
@@ -21,6 +20,7 @@ import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
 import { useSettingsStore } from '@/src/state/settings';
 import { formatDuration } from '@/src/utils/format';
+import { findSmartMainContentIndex } from '@/src/utils/mainContent';
 import type { Book } from '@/src/types/book';
 import type { OcrPage } from '@/src/types/ocr';
 import type { ViewMode } from '@/src/types/settings';
@@ -69,10 +69,11 @@ function ReadyScreen({ book }: { book: Book }) {
 
   const engine = useAudioEngine(book.id);
   const sleepTimer = useSleepTimer();
-  const effective = useEffectiveSettings(book.id);
+  const { ocr: outlineOcr } = useOriginalView(book.id);
 
   const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
+  const [requestedPage, setRequestedPage] = useState<number | undefined>(undefined);
 
   const isPdf = useMemo(() => /\.pdf$/i.test(book.source.name), [book.source.name]);
   const persistedMode = useSettingsStore(s => s.viewMode);
@@ -88,30 +89,46 @@ function ReadyScreen({ book }: { book: Book }) {
   const blocks = book.blocks;
   const totalBlocks = blocks.length;
   const safeIndex = totalBlocks > 0 ? Math.min(Math.max(currentBlockIndex, 0), totalBlocks - 1) : 0;
+  const knownTotalPages = useMemo(() => getKnownTotalPages(book, blocks), [book, blocks]);
+  const currentBlock = totalBlocks > 0 ? blocks[safeIndex] : undefined;
+  const currentPage = requestedPage ?? currentBlock?.page ?? engine.currentPage ?? 1;
+  const requestedPageHasBlocks =
+    requestedPage != null && blocks.some(block => (block.page ?? 1) === requestedPage);
+  const readyThroughPage = getReadyThroughPage(book, knownTotalPages);
+  const requestedPageIsReady = requestedPage != null && requestedPage <= readyThroughPage;
+  const requestedReadyPageHasNoBlocks =
+    requestedPage != null && requestedPageIsReady && !requestedPageHasBlocks;
+  const waitingForRequestedPage =
+    requestedPage != null && !requestedPageHasBlocks && !requestedPageIsReady;
 
-  // Index of the first main-content block, or -1 when none has been observed
-  // yet. As VLM analysis streams in, the value falls into place; the button
-  // hides itself once we're already at or past that point.
-  const firstMainContentIndex = useMemo(() => {
-    for (let i = 0; i < blocks.length; i += 1) {
-      if (blocks[i]?.isMainContent) return i;
+  useEffect(() => {
+    if (requestedPage == null) return;
+    if (knownTotalPages > 0 && requestedPage > knownTotalPages) {
+      setRequestedPage(undefined);
+      return;
     }
-    return -1;
-  }, [blocks]);
+    const target = firstBlockIndexOnPage(blocks, requestedPage);
+    if (target == null) return;
+    setRequestedPage(undefined);
+    engine.seekToBlockOffset(target, 0);
+  }, [blocks, engine, knownTotalPages, requestedPage]);
 
-  // Show the "Skip to main content" affordance only when:
-  //   - a main-content block exists,
-  //   - the current playback position is still strictly before it, and
-  //   - the user hasn't already opted in to `main-only` skipping (in that
-  //     mode the player already auto-skips and the button would be redundant).
-  const showSkipToMain = firstMainContentIndex > safeIndex && effective.skipping !== 'main-only';
+  // Book-level smart start: skip cover/credits/TOC/front-matter pages instead
+  // of trusting the first `isMainContent` block on the current page.
+  const smartMainContentIndex = useMemo(() => findSmartMainContentIndex(blocks), [blocks]);
+
+  const showSkipToMain =
+    !waitingForRequestedPage &&
+    !requestedReadyPageHasNoBlocks &&
+    smartMainContentIndex != null &&
+    smartMainContentIndex > safeIndex;
 
   const handleSkipToMain = useCallback(() => {
-    if (firstMainContentIndex < 0) return;
+    if (smartMainContentIndex == null) return;
     Haptics.selectionAsync().catch(() => {});
-    engine.seekToBlockOffset(firstMainContentIndex, 0);
+    engine.seekToBlockOffset(smartMainContentIndex, 0);
     usePlayerStore.getState().play();
-  }, [engine, firstMainContentIndex]);
+  }, [engine, smartMainContentIndex]);
 
   const handleOutlineSelect = useCallback(
     (blockIndex: number) => {
@@ -137,19 +154,10 @@ function ReadyScreen({ book }: { book: Book }) {
     sleepTimer.cancel();
   }, [sleepTimer]);
 
-  // Prev: always available (can rewind to start of current page) once the
-  // book has any playable content. Next: enabled if any later page exists.
-  const canPrev = totalBlocks > 0;
-  const canNext = useMemo(() => {
-    if (totalBlocks === 0) return false;
-    const currentBlk = blocks[safeIndex];
-    const currentPage = currentBlk?.page ?? 1;
-    const pages = new Set<number>();
-    for (const b of blocks) pages.add(b.page ?? 1);
-    const sorted = Array.from(pages).sort((a, b) => a - b);
-    const idx = sorted.indexOf(currentPage);
-    return idx >= 0 && idx < sorted.length - 1;
-  }, [blocks, safeIndex, totalBlocks]);
+  // Page navigation uses the known full PDF page count, not only pages whose
+  // VLM blocks have already arrived. Unprocessed pages show a loading state.
+  const canPrev = currentPage > 1 || totalBlocks > 0;
+  const canNext = knownTotalPages > 0 ? currentPage < knownTotalPages : false;
 
   const handleRetryBlock = useCallback(() => {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light).catch(() => {});
@@ -213,11 +221,41 @@ function ReadyScreen({ book }: { book: Book }) {
     [blocks, safeIndex, totalBlocks, engine]
   );
 
+  const handlePrevPage = useCallback(() => {
+    if (currentPage > 1) {
+      const prev = currentPage - 1;
+      const target = firstBlockIndexOnPage(blocks, prev);
+      if (target != null) {
+        setRequestedPage(undefined);
+        engine.seekToBlockOffset(target, 0);
+      } else {
+        setRequestedPage(prev);
+        usePlayerStore.getState().pause();
+      }
+      return;
+    }
+    engine.goPrev();
+  }, [blocks, currentPage, engine]);
+
+  const handleNextPage = useCallback(() => {
+    if (knownTotalPages <= 0 || currentPage >= knownTotalPages) {
+      engine.goNext();
+      return;
+    }
+    const next = currentPage + 1;
+    const target = firstBlockIndexOnPage(blocks, next);
+    if (target != null) {
+      setRequestedPage(undefined);
+      engine.seekToBlockOffset(target, 0);
+    } else {
+      setRequestedPage(next);
+      usePlayerStore.getState().pause();
+    }
+  }, [blocks, currentPage, engine, knownTotalPages]);
+
   // ----- Body branches per book status ------------------------------------
   let body: ReactNode;
-  if (book.status === 'queued' || book.status === 'processing') {
-    body = <ProcessingBody book={book} />;
-  } else if (book.status === 'failed') {
+  if (book.status === 'failed') {
     body = (
       <EmptyState
         icon="tray"
@@ -227,6 +265,18 @@ function ReadyScreen({ book }: { book: Book }) {
         onCtaPress={() => router.replace(`/upload/${book.id}` as Href)}
       />
     );
+  } else if (waitingForRequestedPage) {
+    body = (
+      <PageLoadingBody
+        page={requestedPage ?? currentPage}
+        totalPages={knownTotalPages}
+        progress={book.processingProgress}
+      />
+    );
+  } else if (requestedReadyPageHasNoBlocks) {
+    body = <PageNoContentBody page={requestedPage ?? currentPage} totalPages={knownTotalPages} />;
+  } else if (book.status === 'queued' || book.status === 'processing') {
+    body = <ProcessingBody book={book} />;
   } else if (totalBlocks === 0) {
     body = (
       <EmptyState
@@ -244,8 +294,8 @@ function ReadyScreen({ book }: { book: Book }) {
           currentIndex={safeIndex}
           bottomInset={CONTROLS_INSET}
           onBlockTap={blockIndex => engine.seekToBlockOffset(blockIndex, 0)}
-          onSwipePrev={canPrev ? engine.goPrev : undefined}
-          onSwipeNext={canNext ? engine.goNext : undefined}
+          onSwipePrev={canPrev ? handlePrevPage : undefined}
+          onSwipeNext={canNext ? handleNextPage : undefined}
           canSwipePrev={canPrev}
           canSwipeNext={canNext}
         />
@@ -258,6 +308,7 @@ function ReadyScreen({ book }: { book: Book }) {
           blocks={blocks}
           currentIndex={safeIndex}
           bottomInset={CONTROLS_INSET}
+          totalPages={knownTotalPages || engine.totalPages}
           errorMessage={engine.blockError}
           onRetry={handleRetryBlock}
           onBlockTap={handleBlockTap}
@@ -267,7 +318,10 @@ function ReadyScreen({ book }: { book: Book }) {
   }
 
   const showControls =
-    book.status === 'ready' && totalBlocks > 0 && book.blocks[safeIndex] !== undefined;
+    book.status === 'ready' &&
+    (waitingForRequestedPage ||
+      requestedReadyPageHasNoBlocks ||
+      (totalBlocks > 0 && book.blocks[safeIndex] !== undefined));
 
   return (
     <SafeAreaView
@@ -293,17 +347,17 @@ function ReadyScreen({ book }: { book: Book }) {
         <View>
           <PlayerControls
             isPlaying={isPlaying}
-            isLoadingBlock={engine.isLoadingBlock}
+            isLoadingBlock={engine.isLoadingBlock || waitingForRequestedPage}
             blockError={engine.blockError}
-            positionSec={engine.pagePositionSec}
-            durationSec={engine.pageDurationSec}
-            currentPage={engine.currentPage}
-            totalPages={engine.totalPages}
+            positionSec={waitingForRequestedPage ? 0 : engine.pagePositionSec}
+            durationSec={waitingForRequestedPage ? 0 : engine.pageDurationSec}
+            currentPage={currentPage}
+            totalPages={knownTotalPages || engine.totalPages}
             canPrev={canPrev}
             canNext={canNext}
             onTogglePlay={engine.togglePlay}
-            onPrev={engine.goPrev}
-            onNext={engine.goNext}
+            onPrev={handlePrevPage}
+            onNext={handleNextPage}
             onSeekBy={engine.seekBy}
             onSeekTo={handleSeekTo}
             onRetryCurrentBlock={engine.retryCurrentBlock}
@@ -320,12 +374,44 @@ function ReadyScreen({ book }: { book: Book }) {
       <OutlineSheet
         visible={outlineOpen}
         blocks={blocks}
+        ocrPages={outlineOcr?.pages}
         currentIndex={safeIndex}
         onSelect={handleOutlineSelect}
         onClose={() => setOutlineOpen(false)}
       />
     </SafeAreaView>
   );
+}
+
+function maxPageFromBlocks(blocks: readonly Book['blocks'][number][]): number {
+  let max = 0;
+  for (const block of blocks) {
+    const page = block.page ?? 1;
+    if (page > max) max = page;
+  }
+  return max;
+}
+
+function getKnownTotalPages(book: Book, blocks: readonly Book['blocks'][number][]): number {
+  const fromProgress = book.processingProgress?.total ?? 0;
+  return Math.max(fromProgress, maxPageFromBlocks(blocks));
+}
+
+function getReadyThroughPage(book: Book, totalPages: number): number {
+  const progress = book.processingProgress;
+  if (!progress) return maxPageFromBlocks(book.blocks);
+  if (progress.stage === 'done') return totalPages || progress.total;
+  return Math.max(0, progress.done);
+}
+
+function firstBlockIndexOnPage(
+  blocks: readonly Book['blocks'][number][],
+  page: number
+): number | null {
+  for (let i = 0; i < blocks.length; i += 1) {
+    if ((blocks[i]?.page ?? 1) === page) return i;
+  }
+  return null;
 }
 
 function SkipToMainFab({ onPress, bottomInset }: { onPress: () => void; bottomInset: number }) {
@@ -588,15 +674,7 @@ function OriginalViewBody({
   const safeIndex = blocks.length > 0 ? Math.min(Math.max(currentIndex, 0), blocks.length - 1) : 0;
   const currentPage = blocks[safeIndex]?.page ?? 1;
 
-  const totalPages = useMemo(() => {
-    if (blocks.length === 0) return 0;
-    let max = 0;
-    for (const b of blocks) {
-      const p = b.page ?? 1;
-      if (p > max) max = p;
-    }
-    return max;
-  }, [blocks]);
+  const totalPages = useMemo(() => getKnownTotalPages(book, blocks), [book, blocks]);
 
   const { ocr, unsupported } = useOriginalView(book.id);
 
@@ -651,6 +729,82 @@ function OriginalViewBody({
       canSwipePrev={canSwipePrev}
       canSwipeNext={canSwipeNext}
     />
+  );
+}
+
+function PageLoadingBody({
+  page,
+  totalPages,
+  progress
+}: {
+  page: number;
+  totalPages: number;
+  progress?: Book['processingProgress'];
+}) {
+  const { colors, spacing, fontSize, fontWeight } = useTheme();
+  const stage = progress?.stage ?? 'analyzing';
+  const done = progress?.done ?? 0;
+  const total = progress?.total ?? totalPages;
+  const progressLabel = total > 0 ? `${done} / ${total}` : 'starting';
+  const active = stage !== 'done' && (total <= 0 || done < total);
+  const detail =
+    stage === 'rendering'
+      ? `Pages rendered: ${progressLabel}. Waiting for page ${page}.`
+      : `Pages ready: ${progressLabel}. Waiting for page ${page} to finish.`;
+
+  return (
+    <View style={[styles.processing, { padding: spacing.xl, gap: spacing.md }]}>
+      {active ? <ActivityIndicator size="large" color={colors.accent} /> : null}
+      <Text
+        style={{
+          color: colors.text,
+          fontSize: fontSize.h2,
+          fontWeight: fontWeight.semibold,
+          textAlign: 'center'
+        }}
+      >
+        Page {page} of {totalPages || '?'}
+      </Text>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontSize: fontSize.body,
+          textAlign: 'center',
+          lineHeight: fontSize.body * 1.4
+        }}
+      >
+        {active ? detail : 'This page has not been loaded yet.'}
+      </Text>
+    </View>
+  );
+}
+
+function PageNoContentBody({ page, totalPages }: { page: number; totalPages: number }) {
+  const { colors, spacing, fontSize, fontWeight } = useTheme();
+
+  return (
+    <View style={[styles.processing, { padding: spacing.xl, gap: spacing.md }]}>
+      <Text
+        style={{
+          color: colors.text,
+          fontSize: fontSize.h2,
+          fontWeight: fontWeight.semibold,
+          textAlign: 'center'
+        }}
+      >
+        Page {page} of {totalPages || '?'}
+      </Text>
+      <Text
+        style={{
+          color: colors.textMuted,
+          fontSize: fontSize.body,
+          textAlign: 'center',
+          lineHeight: fontSize.body * 1.4
+        }}
+      >
+        This page has been processed, but it has no readable narration blocks. Use Next to continue.
+      </Text>
+    </View>
   );
 }
 

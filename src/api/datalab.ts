@@ -405,8 +405,13 @@ export class DatalabClient {
       throw new DatalabError(`Marker returned no pages for page ${pageNumber}`);
     }
     // Force the page index to what the caller asked for so downstream code
-    // can look up by 1-based number.
-    return { ...page, pageIndex: pageNumber };
+    // can look up by 1-based number. Marker sees a single PNG as page 1,
+    // so fix both the page record and its child blocks.
+    return {
+      ...page,
+      pageIndex: pageNumber,
+      blocks: page.blocks.map(block => ({ ...block, pageIndex: pageNumber }))
+    };
   }
 
   private async pollUntilComplete(

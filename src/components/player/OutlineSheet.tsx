@@ -5,10 +5,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { EmptyState, IconSymbol } from '@/src/components/ui';
 import { useTheme } from '@/src/hooks/useTheme';
 import type { Block } from '@/src/types/book';
+import type { OcrBlock, OcrPage } from '@/src/types/ocr';
 
 export type OutlineSheetProps = {
   visible: boolean;
   blocks: readonly Block[];
+  /** Optional OCR layout fallback; used to recover headings the VLM did not classify. */
+  ocrPages?: readonly OcrPage[];
   /** Currently-playing block index (for the highlight). */
   currentIndex: number;
   onClose: () => void;
@@ -24,33 +27,106 @@ type OutlineEntry = {
   page?: number;
 };
 
-function buildOutline(blocks: readonly Block[]): OutlineEntry[] {
+function normalizeOutlineText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim().toLowerCase();
+}
+
+function cleanOutlineText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function isOcrHeading(block: OcrBlock): boolean {
+  const label = block.label.toLowerCase();
+  const text = cleanOutlineText(block.text);
+  if (text.length < 2) return false;
+  if (/^by\b/i.test(text)) return false;
+  if (/^next page\b/i.test(text)) return false;
+  if (label.includes('pageheader') || label.includes('pagefooter')) return false;
+  return label.includes('sectionheader') || label.includes('title') || label.includes('heading');
+}
+
+function firstBlockIndexOnPage(blocks: readonly Block[], page: number): number | null {
+  for (let i = 0; i < blocks.length; i += 1) {
+    if ((blocks[i]?.page ?? 1) === page) return i;
+  }
+  return null;
+}
+
+function blockTextMatchesOcrHeading(block: Block, headingText: string): boolean {
+  const heading = normalizeOutlineText(headingText);
+  if (heading.length === 0) return false;
+  const blockText = normalizeOutlineText(block.rawText ?? block.text);
+  return blockText === heading || blockText.includes(heading) || heading.includes(blockText);
+}
+
+function blockIndexForOcrHeading(
+  blocks: readonly Block[],
+  page: number,
+  ocrBlock: OcrBlock
+): number | null {
+  const byOcrId = blocks.findIndex(block => block.ocrBlockIds?.includes(ocrBlock.id));
+  if (byOcrId >= 0) return byOcrId;
+
+  const byText = blocks.findIndex(
+    block => (block.page ?? 1) === page && blockTextMatchesOcrHeading(block, ocrBlock.text)
+  );
+  if (byText >= 0) return byText;
+
+  return firstBlockIndexOnPage(blocks, page);
+}
+
+function pushUniqueEntry(entries: OutlineEntry[], entry: OutlineEntry): void {
+  const normalized = normalizeOutlineText(entry.text);
+  if (normalized.length === 0) return;
+  const duplicate = entries.some(
+    existing => existing.page === entry.page && normalizeOutlineText(existing.text) === normalized
+  );
+  if (!duplicate) entries.push(entry);
+}
+
+function buildOutline(blocks: readonly Block[], ocrPages?: readonly OcrPage[]): OutlineEntry[] {
   const entries: OutlineEntry[] = [];
   for (let i = 0; i < blocks.length; i += 1) {
     const b = blocks[i];
     if (!b) continue;
     if (b.type === 'toc') {
-      entries.push({ blockIndex: i, text: b.text, depth: 0, page: b.page });
+      pushUniqueEntry(entries, { blockIndex: i, text: b.text, depth: 0, page: b.page });
       continue;
     }
     if (b.type === 'heading') {
       const depth: 1 | 2 = b.level === 2 ? 2 : 1;
-      entries.push({ blockIndex: i, text: b.text, depth, page: b.page });
+      pushUniqueEntry(entries, { blockIndex: i, text: b.text, depth, page: b.page });
     }
   }
-  return entries;
+
+  for (const page of ocrPages ?? []) {
+    for (const ocrBlock of page.blocks) {
+      if (!isOcrHeading(ocrBlock)) continue;
+      const blockIndex = blockIndexForOcrHeading(blocks, page.pageIndex, ocrBlock);
+      if (blockIndex == null) continue;
+      pushUniqueEntry(entries, {
+        blockIndex,
+        text: cleanOutlineText(ocrBlock.text),
+        depth: 1,
+        page: page.pageIndex
+      });
+    }
+  }
+
+  return entries.sort((a, b) => a.blockIndex - b.blockIndex || a.depth - b.depth);
 }
 
 export function OutlineSheet({
   visible,
   blocks,
+  ocrPages,
   currentIndex,
   onClose,
   onSelect
 }: OutlineSheetProps) {
   const { colors, radius, spacing, fontSize, fontWeight } = useTheme();
 
-  const entries = useMemo(() => buildOutline(blocks), [blocks]);
+  const entries = useMemo(() => buildOutline(blocks, ocrPages), [blocks, ocrPages]);
 
   // Highlight the entry whose blockIndex is the largest one ≤ currentIndex.
   const activeEntryIndex = useMemo(() => {
@@ -129,7 +205,9 @@ export function OutlineSheet({
           ) : (
             <FlatList
               data={entries}
-              keyExtractor={item => `${item.blockIndex}`}
+              keyExtractor={item =>
+                `${item.page ?? 'nopage'}-${item.blockIndex}-${item.depth}-${normalizeOutlineText(item.text)}`
+              }
               contentContainerStyle={{
                 paddingHorizontal: spacing.lg,
                 paddingBottom: spacing.xl

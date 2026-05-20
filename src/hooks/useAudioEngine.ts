@@ -8,6 +8,7 @@ import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
 import { hasCachedAudio } from '@/src/storage/audioCache';
 import type { Block } from '@/src/types/book';
+import { findSmartMainContentIndex } from '@/src/utils/mainContent';
 import type { SkippingMode } from '@/src/types/settings';
 
 /** ElevenLabs server-side speed cap. Anything outside is clamped *for the API call* only. */
@@ -145,6 +146,18 @@ function isPlayableBlock(block: Block, skipping: SkippingMode): boolean {
   return !SERVICE_ONLY_SKIP_TYPES.has(block.type);
 }
 
+function isPlayableBlockAtIndex(
+  blocks: readonly Block[],
+  index: number,
+  skipping: SkippingMode,
+  smartStart: number | null = skipping === 'main-only' ? findSmartMainContentIndex(blocks) : null
+): boolean {
+  const block = blocks[index];
+  if (!block) return false;
+  if (smartStart != null && index < smartStart) return false;
+  return isPlayableBlock(block, skipping);
+}
+
 /**
  * Locate the next block index that should be played given a `skipping` mode.
  * Returns `null` when no further playable block exists in the requested direction.
@@ -156,9 +169,9 @@ export function nextPlayableBlockIndex(
   skipping: SkippingMode
 ): number | null {
   const step = direction === 'forward' ? 1 : -1;
+  const smartStart = skipping === 'main-only' ? findSmartMainContentIndex(blocks) : null;
   for (let i = current + step; i >= 0 && i < blocks.length; i += step) {
-    const block = blocks[i];
-    if (block && isPlayableBlock(block, skipping)) return i;
+    if (isPlayableBlockAtIndex(blocks, i, skipping, smartStart)) return i;
   }
   return null;
 }
@@ -169,10 +182,13 @@ function firstPlayableBlockOnPage(
   pageNumber: number,
   skipping: SkippingMode
 ): number | null {
+  const smartStart = skipping === 'main-only' ? findSmartMainContentIndex(blocks) : null;
   for (let i = 0; i < blocks.length; i += 1) {
     const b = blocks[i];
     if (!b) continue;
-    if ((b.page ?? 1) === pageNumber && isPlayableBlock(b, skipping)) return i;
+    if ((b.page ?? 1) === pageNumber && isPlayableBlockAtIndex(blocks, i, skipping, smartStart)) {
+      return i;
+    }
   }
   return null;
 }
@@ -211,6 +227,7 @@ function describeError(err: unknown): string {
 export function useAudioEngine(bookId: string): UseAudioEngineResult {
   // ----- Reactive sources -------------------------------------------------
   const blocks = useLibraryStore(s => s.books[bookId]?.blocks) ?? EMPTY_BLOCKS;
+  const knownPageTotal = useLibraryStore(s => s.books[bookId]?.processingProgress?.total ?? 0);
   const currentBlockIndex = usePlayerStore(s => s.currentBlockIndex);
   const isPlaying = usePlayerStore(s => s.isPlaying);
   // Effective (global + per-book override) reading settings.
@@ -263,6 +280,12 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   const currentBlock = safeIndex >= 0 ? blocks[safeIndex] : undefined;
   const currentBlockId = currentBlock?.id;
   const blocksLength = blocks.length;
+  const smartMainContentIndex = useMemo(() => findSmartMainContentIndex(blocks), [blocks]);
+  const shouldSmartSkipCurrent =
+    skipping === 'main-only' &&
+    smartMainContentIndex != null &&
+    safeIndex >= 0 &&
+    safeIndex < smartMainContentIndex;
 
   // Page-level progress: aggregate the current page's blocks into a single
   // virtual track so the player UI shows page position / page duration
@@ -270,7 +293,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   // anything without per-block page numbers fall back to a single page.
   const pageProgress = useMemo(() => {
     if (!currentBlock) {
-      return { pagePositionSec: 0, pageDurationSec: 0, currentPage: 0, totalPages: 0 };
+      return { pagePositionSec: 0, pageDurationSec: 0, currentPage: 0, totalPages: knownPageTotal };
     }
     const currentPageNum = currentBlock.page ?? 1;
     const allPages = new Set<number>();
@@ -300,12 +323,12 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
       pagePositionSec: position,
       pageDurationSec: total,
       currentPage: currentPageNum,
-      totalPages: allPages.size
+      totalPages: Math.max(allPages.size, knownPageTotal)
     };
     // `durationsTick` participates so newly observed real durations refresh
     // the bar; React Compiler ignores this kind of plain ref read otherwise.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [blocks, currentBlock, currentBlockId, positionSec, speed, durationsTick]);
+  }, [blocks, currentBlock, currentBlockId, positionSec, speed, durationsTick, knownPageTotal]);
 
   // ----- Player lifecycle: create once, release on unmount ---------------
   useEffect(() => {
@@ -418,6 +441,10 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     const player = playerRef.current;
     if (!player) return;
     if (safeIndex < 0) return;
+    if (shouldSmartSkipCurrent && smartMainContentIndex != null) {
+      usePlayerStore.getState().setBlock(smartMainContentIndex);
+      return;
+    }
     const block = currentBlock;
     if (!block) return;
     if (ttsProvider === 'elevenlabs' && !voiceId) {
@@ -530,7 +557,18 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     // We deliberately omit `currentBlock` (a fresh object every render) and
     // depend on its stable `currentBlockId` instead.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [bookId, currentBlockId, safeIndex, voiceId, localVoice, speed, cacheEpoch, ttsProvider]);
+  }, [
+    bookId,
+    currentBlockId,
+    safeIndex,
+    shouldSmartSkipCurrent,
+    smartMainContentIndex,
+    voiceId,
+    localVoice,
+    speed,
+    cacheEpoch,
+    ttsProvider
+  ]);
 
   // ----- Drive play/pause on the player when isPlaying flips -------------
   useEffect(() => {

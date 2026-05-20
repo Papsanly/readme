@@ -50,8 +50,14 @@ import { paths } from '@/src/storage/paths';
 import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
 import type { Block } from '@/src/types/book';
-import type { OcrPage } from '@/src/types/ocr';
-import type { VlmClient, VlmContext, VlmImageMimeType, VlmPageResult } from '@/src/types/vlm';
+import type { OcrBlock, OcrPage } from '@/src/types/ocr';
+import type {
+  VlmBlock,
+  VlmClient,
+  VlmContext,
+  VlmImageMimeType,
+  VlmPageResult
+} from '@/src/types/vlm';
 import { newId } from '@/src/utils/id';
 
 /** Concurrent in-flight VLM requests per book. */
@@ -228,7 +234,8 @@ async function runProcessBook(
           err instanceof Error ? err.message : String(err)
         }`
       );
-      return { bookId, blocks: flow.blocks, pageCount: flow.blocks.length };
+      const processedPages = new Set(flow.blocks.map(b => b.page ?? 1)).size;
+      return { bookId, blocks: flow.blocks, pageCount: processedPages };
     }
     const isCancel = signal.aborted || (err instanceof Error && err.name === 'AbortError');
     const message = isCancel ? 'Cancelled' : err instanceof Error ? err.message : String(err);
@@ -389,7 +396,7 @@ async function streamRenderAndAnalyze(
   const pageResults: (VlmPageResult | undefined)[] = [];
   let nextPageToCommit = 1;
   let renderedTotal = 0;
-  let analyzedCount = 0;
+
   let coverWritten = false;
   let globalBlockIndex = 0;
   let inFlight = 0;
@@ -442,24 +449,38 @@ async function streamRenderAndAnalyze(
 
       nextPageToCommit += 1;
     }
+
+    const committedPages = nextPageToCommit - 1;
+    if (committedPages > 0 && renderedTotal > 0) {
+      useLibraryStore.getState().updateBook(bookId, {
+        processingProgress: {
+          stage: 'analyzing',
+          done: committedPages,
+          total: renderedTotal
+        }
+      });
+    }
   };
 
   const startVlmForPage = (pageNumber: number): void => {
     const p = (async () => {
       await acquireSlot();
+      let fallbackOcrPage: OcrPage | undefined;
       try {
         if (signal.aborted) return;
         const pageUri = paths.bookPage(bookId, pageNumber);
 
         // Step 1: datalab OCR for this page. Result is persisted to BookOcr
         // on disk so the Original View just reads the cache.
-        const ocrPage = await runOcrForPage(bookId, pageUri, pageNumber, signal);
+        const pageOcr = await runOcrForPage(bookId, pageUri, pageNumber, signal);
+        fallbackOcrPage = pageOcr;
         if (signal.aborted) return;
 
         // Step 2: VLM with image + OCR JSON. Model emits narration blocks
         // with `ocrBlockIds` referencing the layout we just produced.
         const imageBase64 = await new File(pageUri).base64();
         if (signal.aborted) return;
+        const ocrBlocks = pageOcr.blocks.map(b => ({ id: b.id, label: b.label, text: b.text }));
         const result = await withRetry(
           () =>
             client.analyzePage({
@@ -467,7 +488,7 @@ async function streamRenderAndAnalyze(
               context,
               pageNumber,
               totalPages: renderedTotal,
-              ocrBlocks: ocrPage.blocks.map(b => ({ id: b.id, label: b.label, text: b.text }))
+              ocrBlocks
             }),
           {
             attempts: RETRY_ATTEMPTS,
@@ -476,16 +497,17 @@ async function streamRenderAndAnalyze(
           }
         );
         pageResults[pageNumber - 1] = result;
-        analyzedCount += 1;
-        if (renderedTotal > 0) {
-          useLibraryStore.getState().updateBook(bookId, {
-            processingProgress: {
-              stage: 'analyzing',
-              done: analyzedCount,
-              total: renderedTotal
-            }
-          });
-        }
+        tryCommitInOrder();
+      } catch (err) {
+        if (signal.aborted || (err instanceof Error && err.name === 'AbortError')) throw err;
+        const fallback = fallbackPageResultFromOcr(fallbackOcrPage);
+        if (!flow.firstPageReady && fallback.blocks.length === 0) throw err;
+        console.warn(
+          `[processor] VLM failed for ${bookId} page ${pageNumber}; using OCR fallback and continuing: ${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
+        pageResults[pageNumber - 1] = fallback;
         tryCommitInOrder();
       } finally {
         releaseSlot();
@@ -569,6 +591,68 @@ async function runOcrForPage(
       blocks: []
     };
   }
+}
+
+function cleanOcrText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim();
+}
+
+function ocrBlockReadingOrder(a: OcrBlock, b: OcrBlock): number {
+  const ay = a.bbox[1];
+  const by = b.bbox[1];
+  if (Math.abs(ay - by) > 12) return ay - by;
+  return a.bbox[0] - b.bbox[0];
+}
+
+function fallbackTypeForOcrLabel(label: string): VlmBlock['type'] {
+  const l = label.toLowerCase();
+  if (l.includes('header') || l.includes('footer')) return 'header-footer';
+  if (l.includes('page') && l.includes('number')) return 'page-number';
+  if (l.includes('footnote')) return 'footnote';
+  if (l.includes('toc') || l.includes('contents')) return 'toc';
+  if (l.includes('caption')) return 'caption';
+  if (l.includes('section') || l.includes('title') || l.includes('heading')) return 'heading';
+  if (l.includes('list')) return 'list';
+  if (l.includes('quote')) return 'quote';
+  if (l.includes('picture') || l.includes('figure') || l.includes('image') || l.includes('table')) {
+    return 'figure';
+  }
+  return 'paragraph';
+}
+
+function isServiceOcrLabel(label: string): boolean {
+  const l = label.toLowerCase();
+  return (
+    l.includes('header') ||
+    l.includes('footer') ||
+    (l.includes('page') && l.includes('number')) ||
+    l.includes('footnote') ||
+    l.includes('toc') ||
+    l.includes('contents')
+  );
+}
+
+function fallbackPageResultFromOcr(ocrPage: OcrPage | undefined): VlmPageResult {
+  const ocrBlocks = [...(ocrPage?.blocks ?? [])]
+    .map(block => ({ block, text: cleanOcrText(block.text) }))
+    .filter(item => item.text.length > 0)
+    .sort((a, b) => ocrBlockReadingOrder(a.block, b.block));
+
+  const blocks: VlmBlock[] = ocrBlocks.map(({ block, text }) => {
+    const type = fallbackTypeForOcrLabel(block.label);
+    const isFigure = type === 'figure';
+    const isMainContent = !isServiceOcrLabel(block.label);
+    return {
+      type,
+      text,
+      rawText: text,
+      isFigure,
+      isMainContent,
+      ocrBlockIds: [block.id]
+    };
+  });
+
+  return { blocks };
 }
 
 async function commitCover(bookId: string, pageUri: string): Promise<void> {

@@ -18,6 +18,8 @@ export type CurrentPageViewProps = {
   currentIndex: number;
   /** Bottom padding so the bottom of the page text isn't hidden behind controls. */
   bottomInset: number;
+  /** Total page count known from PDF processing, even if later pages are not loaded yet. */
+  totalPages?: number;
   /** Optional error text — when present, the view shows a retry hint at the bottom. */
   errorMessage?: string;
   /** Tap handler for the retry hint. */
@@ -40,6 +42,7 @@ export function CurrentPageView({
   blocks,
   currentIndex,
   bottomInset,
+  totalPages: knownTotalPages,
   errorMessage,
   onRetry,
   onBlockTap
@@ -48,12 +51,13 @@ export function CurrentPageView({
 
   const safeIndex = blocks.length > 0 ? Math.min(Math.max(currentIndex, 0), blocks.length - 1) : -1;
   const pageNumber = safeIndex >= 0 ? (blocks[safeIndex]?.page ?? 1) : 0;
-  const totalPages = useMemo(() => {
+  const loadedPageCount = useMemo(() => {
     if (blocks.length === 0) return 0;
     const all = new Set<number>();
     for (const b of blocks) all.add(b.page ?? 1);
     return all.size;
   }, [blocks]);
+  const totalPages = Math.max(knownTotalPages ?? 0, loadedPageCount);
 
   // Blocks on this page only — recomputed on page change.
   const pageBlocks = useMemo(() => {
