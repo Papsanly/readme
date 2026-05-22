@@ -777,7 +777,6 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
       const target = blocksNow[blockIndex];
       if (!target) return;
       const player = playerRef.current;
-      const playerState = usePlayerStore.getState();
       const targetIsCurrent = target.id === currentBlockIdRef.current;
       if (targetIsCurrent && player) {
         // Live seek — works during playback, no re-synthesis. Bypasses the
@@ -788,20 +787,11 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
           console.warn('[player] word-tap seekTo failed', err);
         });
         setPositionSec(cleanOffset);
-        if (!playerState.isPlaying) {
-          playerState.play();
-          try {
-            player.play();
-          } catch (err) {
-            console.warn('[player] post-seek play failed', err);
-          }
-        }
         return;
       }
       // Different block → set the target with a pending offset; the load
       // effect will load the new source and apply the seek after replace.
-      playerState.setBlock(blockIndex, Math.max(0, offsetSec));
-      if (!playerState.isPlaying) playerState.play();
+      usePlayerStore.getState().setBlock(blockIndex, Math.max(0, offsetSec));
     },
     [bookId]
   );

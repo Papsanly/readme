@@ -7,7 +7,7 @@ const TICK_MS = 1000;
 export type SleepTimerState = {
   /** Remaining seconds until the timer fires, or `null` when no timer is armed. */
   remainingSec: number | null;
-  /** Arm a timer for `minutes` from now. Replaces any existing timer. */
+  /** Arm a timer for `minutes` of active playback. Replaces any existing timer. */
   start: (minutes: number) => void;
   /** Disarm the timer without pausing playback. */
   cancel: () => void;
@@ -15,52 +15,62 @@ export type SleepTimerState = {
 
 /**
  * Single-shot countdown that pauses playback when it reaches zero.
+ * The countdown only advances while audio is actually playing; when the
+ * player is paused, the timer is paused too and resumes from the same
+ * remaining time on playback.
+ *
  * Lives at the player screen so it disarms automatically when the user
  * navigates away — by design a sleep timer should not survive losing the
  * current book context.
  */
 export function useSleepTimer(): SleepTimerState {
-  const [endsAt, setEndsAt] = useState<number | null>(null);
-  const [now, setNow] = useState<number>(() => Date.now());
+  const isPlaying = usePlayerStore(s => s.isPlaying);
+  const [remainingSec, setRemainingSec] = useState<number | null>(null);
   const tickRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
+  const clearTick = useCallback(() => {
+    if (!tickRef.current) return;
+    clearInterval(tickRef.current);
+    tickRef.current = null;
+  }, []);
+
   useEffect(() => {
-    if (endsAt == null) {
-      if (tickRef.current) {
-        clearInterval(tickRef.current);
-        tickRef.current = null;
-      }
+    if (remainingSec == null || !isPlaying) {
+      clearTick();
       return;
     }
-    setNow(Date.now());
-    tickRef.current = setInterval(() => setNow(Date.now()), TICK_MS);
-    return () => {
-      if (tickRef.current) {
-        clearInterval(tickRef.current);
-        tickRef.current = null;
-      }
-    };
-  }, [endsAt]);
+
+    tickRef.current = setInterval(() => {
+      setRemainingSec(prev => {
+        if (prev == null) return null;
+        return Math.max(0, prev - 1);
+      });
+    }, TICK_MS);
+
+    return clearTick;
+  }, [clearTick, isPlaying, remainingSec]);
 
   useEffect(() => {
-    if (endsAt == null) return;
-    if (now < endsAt) return;
-    // Timer expired — pause playback and disarm.
-    setEndsAt(null);
+    if (remainingSec !== 0) return;
+    setRemainingSec(null);
     usePlayerStore.getState().pause();
-  }, [endsAt, now]);
+  }, [remainingSec]);
 
   // Disarm on unmount.
-  useEffect(() => () => setEndsAt(null), []);
+  useEffect(
+    () => () => {
+      clearTick();
+      setRemainingSec(null);
+    },
+    [clearTick]
+  );
 
   const start = useCallback((minutes: number) => {
     const clean = Math.max(1, Math.round(minutes));
-    setEndsAt(Date.now() + clean * 60 * 1000);
+    setRemainingSec(clean * 60);
   }, []);
 
-  const cancel = useCallback(() => setEndsAt(null), []);
-
-  const remainingSec = endsAt == null ? null : Math.max(0, Math.ceil((endsAt - now) / 1000));
+  const cancel = useCallback(() => setRemainingSec(null), []);
 
   return { remainingSec, start, cancel };
 }

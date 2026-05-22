@@ -40,9 +40,9 @@
 //   year: year,
 // )
 
-#include "parts/part1-spec/main.typ"
+// #include "parts/part1-spec/main.typ"
 
-#pagebreak(weak: true)
+// #pagebreak(weak: true)
 
 // 3. Пояснювальна записка без окремої титульної сторінки
 // Титульну сторінку ПЗ тимчасово закоментовано.

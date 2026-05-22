@@ -166,7 +166,8 @@ function ReadyScreen({ book }: { book: Book }) {
 
   /**
    * Block tapped on the current page → seek to the block start. Live-seeks
-   * if the target is the currently-loaded block, otherwise loads + plays.
+   * if the target is the currently-loaded block, otherwise loads it without
+   * changing the current play/pause state.
    */
   const handleBlockTap = useCallback(
     (blockIndex: number) => {
