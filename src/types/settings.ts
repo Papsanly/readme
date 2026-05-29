@@ -20,6 +20,12 @@ export type ViewMode = 'reflowed' | 'original';
  */
 export type TtsProvider = 'elevenlabs' | 'local';
 
+export type PronunciationOverride = {
+  id: string;
+  term: string;
+  pronunciation: string;
+};
+
 export type AppSettings = {
   voiceId?: string;
   voiceName?: string;
@@ -30,4 +36,6 @@ export type AppSettings = {
   localVoice?: string;
   /** Last-used player view mode; new players start in this mode. */
   viewMode: ViewMode;
+  /** Global pronunciation dictionary used by VLM normalization and TTS synthesis. */
+  pronunciations: PronunciationOverride[];
 };

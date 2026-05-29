@@ -47,7 +47,8 @@ export function buildBackup(): LibraryBackup {
     skipping: settingsState.skipping,
     ttsProvider: settingsState.ttsProvider,
     localVoice: settingsState.localVoice,
-    viewMode: settingsState.viewMode
+    viewMode: settingsState.viewMode,
+    pronunciations: settingsState.pronunciations
   };
   return {
     version: BACKUP_VERSION,
@@ -154,6 +155,7 @@ export function applyBackup(backup: LibraryBackup): ImportSummary {
   settings.setVoice(backup.settings.voiceId, backup.settings.voiceName);
   if (backup.settings.localVoice) settings.setLocalVoice(backup.settings.localVoice);
   if (backup.settings.viewMode) settings.setViewMode(backup.settings.viewMode);
+  settings.setPronunciations(backup.settings.pronunciations ?? []);
 
   return { restoredBooks: restored, skippedBooks: skipped, settingsApplied: true };
 }

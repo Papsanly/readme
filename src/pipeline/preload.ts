@@ -4,6 +4,7 @@ import { useLibraryStore } from '@/src/state/library';
 import { hasCachedAudio } from '@/src/storage/audioCache';
 import type { Block } from '@/src/types/book';
 import type { SkippingMode } from '@/src/types/settings';
+import { applyPronunciationsToText } from '@/src/utils/pronunciation';
 
 const SERVICE_ONLY_SKIP_TYPES: ReadonlySet<Block['type']> = new Set([
   'page-number',
@@ -78,7 +79,7 @@ export async function preloadBookAudio(
   const queue: { id: string; text: string }[] = [];
   for (const b of playable) {
     if (!(await hasCachedAudio(bookId, b.id))) {
-      queue.push({ id: b.id, text: b.text });
+      queue.push({ id: b.id, text: applyPronunciationsToText(b.text, effective.pronunciations) });
     }
   }
 

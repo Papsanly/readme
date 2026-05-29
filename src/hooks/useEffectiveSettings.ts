@@ -1,7 +1,10 @@
+import { useMemo } from 'react';
+
 import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
 import type { BookSettingsOverride } from '@/src/types/book';
-import type { SkippingMode, TtsProvider } from '@/src/types/settings';
+import type { PronunciationOverride, SkippingMode, TtsProvider } from '@/src/types/settings';
+import { mergePronunciations } from '@/src/utils/pronunciation';
 
 /**
  * Reading settings actually used to play a specific book. Each field is
@@ -18,6 +21,7 @@ export type EffectiveSettings = {
   voiceId?: string;
   voiceName?: string;
   localVoice?: string;
+  pronunciations: PronunciationOverride[];
 };
 
 /**
@@ -33,6 +37,11 @@ export function useEffectiveSettings(bookId: string | undefined): EffectiveSetti
   const voiceId = useSettingsStore(s => s.voiceId);
   const voiceName = useSettingsStore(s => s.voiceName);
   const localVoice = useSettingsStore(s => s.localVoice);
+  const pronunciations = useSettingsStore(s => s.pronunciations);
+  const mergedPronunciations = useMemo(
+    () => mergePronunciations(pronunciations, override?.pronunciations),
+    [override?.pronunciations, pronunciations]
+  );
 
   return {
     speed: override?.speed ?? speed,
@@ -40,7 +49,8 @@ export function useEffectiveSettings(bookId: string | undefined): EffectiveSetti
     ttsProvider: override?.ttsProvider ?? ttsProvider,
     voiceId: 'voiceId' in (override ?? {}) ? override?.voiceId : voiceId,
     voiceName: 'voiceName' in (override ?? {}) ? override?.voiceName : voiceName,
-    localVoice: override?.localVoice ?? localVoice
+    localVoice: override?.localVoice ?? localVoice,
+    pronunciations: mergedPronunciations
   };
 }
 
@@ -66,6 +76,7 @@ export function getEffectiveSettings(bookId: string): EffectiveSettings {
     ttsProvider: override?.ttsProvider ?? global.ttsProvider,
     voiceId: 'voiceId' in (override ?? {}) ? override?.voiceId : global.voiceId,
     voiceName: 'voiceName' in (override ?? {}) ? override?.voiceName : global.voiceName,
-    localVoice: override?.localVoice ?? global.localVoice
+    localVoice: override?.localVoice ?? global.localVoice,
+    pronunciations: mergePronunciations(global.pronunciations, override?.pronunciations)
   };
 }

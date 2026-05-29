@@ -62,6 +62,10 @@ export default function RootLayout() {
             name="settings/local-voice"
             options={{ headerShown: true, title: 'Local voice' }}
           />
+          <Stack.Screen
+            name="settings/pronunciations"
+            options={{ headerShown: true, title: 'Pronunciations' }}
+          />
           <Stack.Screen name="settings/about" options={{ headerShown: true, title: 'About' }} />
           <Stack.Screen
             name="settings/backup"

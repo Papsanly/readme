@@ -55,6 +55,9 @@ type RenderedBlock = {
   ocr: OcrBlock;
   status: BlockStatus;
   vlmIndex?: number;
+  block?: Block;
+  /** 1-based reading order within the currently displayed page. */
+  readingOrder?: number;
   /** Bbox in display pixels (already scaled by `pageScale`). */
   displayBbox: { left: number; top: number; width: number; height: number };
 };
@@ -66,6 +69,22 @@ const BOTTOM_EXTRA = 24;
 const ZOOM_STEPS = [1, 1.5, 2, 2.75, 4] as const;
 /** Min horizontal pixel travel to register a page swipe. */
 const SWIPE_THRESHOLD_PX = 50;
+const BASE_BADGE_SIZE = 18;
+
+const BLOCK_TYPE_COLORS: Readonly<Record<Block['type'], string>> = {
+  heading: '#7C3AED',
+  paragraph: '#2563EB',
+  list: '#059669',
+  quote: '#D97706',
+  caption: '#0891B2',
+  figure: '#EA580C',
+  'page-number': '#64748B',
+  footnote: '#9333EA',
+  'header-footer': '#64748B',
+  toc: '#DB2777',
+  service: '#6B7280',
+  unknown: '#111827'
+};
 
 export function OriginalView({
   bookId,
@@ -129,6 +148,18 @@ export function OriginalView({
     return m;
   }, [blocks, pageNumber]);
 
+  const pageOrderByVlmIndex = useMemo<Map<number, number>>(() => {
+    const m = new Map<number, number>();
+    let order = 1;
+    for (let i = 0; i < blocks.length; i += 1) {
+      const block = blocks[i];
+      if ((block.page ?? 1) !== pageNumber) continue;
+      m.set(i, order);
+      order += 1;
+    }
+    return m;
+  }, [blocks, pageNumber]);
+
   const baseContentWidth = windowWidth - HORIZONTAL_PADDING * 2;
   const basePageScale = ocrPage.width > 0 ? baseContentWidth / ocrPage.width : 1;
   const pageScale = basePageScale * zoom;
@@ -145,6 +176,7 @@ export function OriginalView({
       const width = Math.max(0, (x2 - x1) * pageScale);
       const height = Math.max(0, (y2 - y1) * pageScale);
       const vlmIndex = ocrIdToVlmIndex.get(ocrBlock.id);
+      const block = vlmIndex === undefined ? undefined : blocks[vlmIndex];
       let status: BlockStatus;
       if (vlmIndex === undefined) status = 'skipped';
       else if (vlmIndex === safeIndex) status = 'current';
@@ -154,11 +186,13 @@ export function OriginalView({
         ocr: ocrBlock,
         status,
         vlmIndex,
+        block,
+        readingOrder: vlmIndex === undefined ? undefined : pageOrderByVlmIndex.get(vlmIndex),
         displayBbox: { left, top, width, height }
       });
     }
     return out;
-  }, [ocrPage, ocrIdToVlmIndex, safeIndex, pageScale]);
+  }, [blocks, ocrPage, ocrIdToVlmIndex, pageOrderByVlmIndex, safeIndex, pageScale]);
 
   // Page PNG cached at processing time.
   const pageUri = useMemo(() => paths.bookPage(bookId, pageNumber), [bookId, pageNumber]);
@@ -322,10 +356,7 @@ export function OriginalView({
                   key={rb.ocr.id}
                   rb={rb}
                   onPress={() => handleBlockPress(rb)}
-                  paletteCurrent={colors.accent}
-                  paletteSuccess={colors.success}
                   paletteMuted={colors.textMuted}
-                  paletteBorder={colors.border}
                 />
               ))}
             </View>
@@ -431,22 +462,16 @@ function ZoomButton({
 type BlockOverlayProps = {
   rb: RenderedBlock;
   onPress: () => void;
-  paletteCurrent: string;
-  paletteSuccess: string;
   paletteMuted: string;
-  paletteBorder: string;
 };
 
-function BlockOverlay({
-  rb,
-  onPress,
-  paletteCurrent,
-  paletteSuccess,
-  paletteMuted,
-  paletteBorder
-}: BlockOverlayProps) {
+function BlockOverlay({ rb, onPress, paletteMuted }: BlockOverlayProps) {
   const { left, top, width, height } = rb.displayBbox;
   const aligned = rb.vlmIndex !== undefined;
+  const typeColor = rb.block ? BLOCK_TYPE_COLORS[rb.block.type] : paletteMuted;
+  const [, y1, , y2] = rb.ocr.bbox;
+  const badgeScale = Math.max(0.8, Math.min(4, height / Math.max(1, y2 - y1)));
+  const badgeSize = BASE_BADGE_SIZE * badgeScale;
 
   let backgroundColor: string;
   let borderColor: string;
@@ -455,18 +480,18 @@ function BlockOverlay({
 
   switch (rb.status) {
     case 'current':
-      backgroundColor = withAlpha(paletteCurrent, 0.3);
-      borderColor = paletteCurrent;
+      backgroundColor = withAlpha(typeColor, 0.34);
+      borderColor = typeColor;
       borderWidth = 2;
       break;
     case 'past':
-      backgroundColor = withAlpha(paletteSuccess, 0.12);
-      borderColor = withAlpha(paletteSuccess, 0.6);
+      backgroundColor = withAlpha(typeColor, 0.16);
+      borderColor = withAlpha(typeColor, 0.7);
       borderWidth = 1;
       break;
     case 'future':
-      backgroundColor = withAlpha(paletteCurrent, 0.08);
-      borderColor = withAlpha(paletteCurrent, 0.55);
+      backgroundColor = withAlpha(typeColor, 0.1);
+      borderColor = withAlpha(typeColor, 0.62);
       borderWidth = 1;
       break;
     case 'skipped':
@@ -501,7 +526,35 @@ function BlockOverlay({
           opacity: pressed ? 0.65 : 1
         }
       ]}
-    />
+    >
+      {rb.readingOrder != null ? (
+        <View
+          pointerEvents="none"
+          style={[
+            styles.orderBadge,
+            {
+              minWidth: badgeSize,
+              height: badgeSize,
+              borderBottomRightRadius: 6 * badgeScale,
+              paddingHorizontal: 4 * badgeScale,
+              backgroundColor: typeColor
+            }
+          ]}
+        >
+          <Text
+            style={[
+              styles.orderBadgeText,
+              {
+                fontSize: 10 * badgeScale,
+                lineHeight: 12 * badgeScale
+              }
+            ]}
+          >
+            {rb.readingOrder}
+          </Text>
+        </View>
+      ) : null}
+    </Pressable>
   );
 }
 
@@ -549,5 +602,17 @@ const styles = StyleSheet.create({
   zoomLabel: {
     paddingHorizontal: 6,
     paddingVertical: 8
+  },
+  orderBadge: {
+    position: 'absolute',
+    left: -1,
+    top: -1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderTopLeftRadius: 2
+  },
+  orderBadgeText: {
+    color: '#FFFFFF',
+    fontWeight: '800'
   }
 });

@@ -66,6 +66,7 @@ export type BookSettingsOverride = {
   voiceId?: string;
   voiceName?: string;
   localVoice?: string;
+  pronunciations?: import('./settings').PronunciationOverride[];
 };
 
 export type Book = {

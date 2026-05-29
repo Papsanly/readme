@@ -24,3 +24,6 @@ export type { SleepTimerSheetProps } from './SleepTimerSheet';
 
 export { OutlineSheet } from './OutlineSheet';
 export type { OutlineSheetProps } from './OutlineSheet';
+
+export { PronunciationSheet } from './PronunciationSheet';
+export type { PronunciationSheetProps } from './PronunciationSheet';

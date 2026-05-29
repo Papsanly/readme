@@ -9,10 +9,12 @@ import {
   OriginalView,
   OutlineSheet,
   PlayerControls,
+  PronunciationSheet,
   SleepTimerSheet
 } from '@/src/components/player';
 import { EmptyState, IconSymbol, ProgressBar } from '@/src/components/ui';
 import { useAudioEngine } from '@/src/hooks/useAudioEngine';
+import { useEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
 import { useOriginalView } from '@/src/hooks/useOriginalView';
 import { useSleepTimer } from '@/src/hooks/useSleepTimer';
 import { useTheme } from '@/src/hooks/useTheme';
@@ -21,6 +23,7 @@ import { usePlayerStore } from '@/src/state/player';
 import { useSettingsStore } from '@/src/state/settings';
 import { formatDuration } from '@/src/utils/format';
 import { findSmartMainContentIndex } from '@/src/utils/mainContent';
+import { upsertPronunciationOverride } from '@/src/utils/pronunciation';
 import type { Book } from '@/src/types/book';
 import type { OcrPage } from '@/src/types/ocr';
 import type { ViewMode } from '@/src/types/settings';
@@ -68,12 +71,15 @@ function ReadyScreen({ book }: { book: Book }) {
   const isPlaying = usePlayerStore(s => s.isPlaying);
 
   const engine = useAudioEngine(book.id);
+  const effective = useEffectiveSettings(book.id);
   const sleepTimer = useSleepTimer();
   const { ocr: outlineOcr } = useOriginalView(book.id);
 
   const [sleepSheetOpen, setSleepSheetOpen] = useState(false);
   const [outlineOpen, setOutlineOpen] = useState(false);
   const [requestedPage, setRequestedPage] = useState<number | undefined>(undefined);
+  const [pronunciationOpen, setPronunciationOpen] = useState(false);
+  const [pronunciationSeed, setPronunciationSeed] = useState<string | undefined>(undefined);
 
   const isPdf = useMemo(() => /\.pdf$/i.test(book.source.name), [book.source.name]);
   const persistedMode = useSettingsStore(s => s.viewMode);
@@ -153,6 +159,25 @@ function ReadyScreen({ book }: { book: Book }) {
     Haptics.selectionAsync().catch(() => {});
     sleepTimer.cancel();
   }, [sleepTimer]);
+
+  const handleAddPronunciationRequest = useCallback((sourceText: string) => {
+    setPronunciationSeed(suggestPronunciationTerm(sourceText));
+    setPronunciationOpen(true);
+  }, []);
+
+  const handleSavePronunciation = useCallback(
+    (term: string, pronunciation: string) => {
+      useLibraryStore.getState().setSettingsOverride(book.id, {
+        pronunciations: upsertPronunciationOverride(
+          book.settingsOverride?.pronunciations,
+          term,
+          pronunciation
+        )
+      });
+      setPronunciationOpen(false);
+    },
+    [book.id, book.settingsOverride?.pronunciations]
+  );
 
   // Page navigation uses the known full PDF page count, not only pages whose
   // VLM blocks have already arrived. Unprocessed pages show a loading state.
@@ -306,13 +331,17 @@ function ReadyScreen({ book }: { book: Book }) {
     body = (
       <View style={styles.list}>
         <CurrentPageView
+          bookId={book.id}
           blocks={blocks}
           currentIndex={safeIndex}
           bottomInset={CONTROLS_INSET}
           totalPages={knownTotalPages || engine.totalPages}
+          skipping={effective.skipping}
+          ocrPages={outlineOcr?.pages}
           errorMessage={engine.blockError}
           onRetry={handleRetryBlock}
           onBlockTap={handleBlockTap}
+          onAddPronunciation={handleAddPronunciationRequest}
         />
       </View>
     );
@@ -380,6 +409,12 @@ function ReadyScreen({ book }: { book: Book }) {
         onSelect={handleOutlineSelect}
         onClose={() => setOutlineOpen(false)}
       />
+      <PronunciationSheet
+        visible={pronunciationOpen}
+        initialTerm={pronunciationSeed}
+        onSave={handleSavePronunciation}
+        onClose={() => setPronunciationOpen(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -413,6 +448,24 @@ function firstBlockIndexOnPage(
     if ((blocks[i]?.page ?? 1) === page) return i;
   }
   return null;
+}
+
+function suggestPronunciationTerm(sourceText: string): string {
+  const clean = sourceText.replace(/\s+/g, ' ').trim();
+  if (!clean) return '';
+  if (clean.length <= 40) return trimTermPunctuation(clean);
+
+  const acronym = clean.match(/\b[A-Z][A-Z0-9-]{1,}\b/);
+  if (acronym?.[0]) return acronym[0];
+
+  const token = clean.match(/[A-Za-zА-Яа-яЁёЇїІіЄєҐґ][A-Za-zА-Яа-яЁёЇїІіЄєҐґ'’.-]{1,}/);
+  if (token?.[0]) return trimTermPunctuation(token[0]);
+
+  return trimTermPunctuation(clean.slice(0, 40));
+}
+
+function trimTermPunctuation(value: string): string {
+  return value.replace(/^[\s“”"'’.,;:!?()[\]{}]+|[\s“”"'’.,;:!?()[\]{}]+$/g, '');
 }
 
 function SkipToMainFab({ onPress, bottomInset }: { onPress: () => void; bottomInset: number }) {

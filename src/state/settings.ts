@@ -2,7 +2,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-import type { AppSettings, SkippingMode, TtsProvider, ViewMode } from '@/src/types/settings';
+import type {
+  AppSettings,
+  PronunciationOverride,
+  SkippingMode,
+  TtsProvider,
+  ViewMode
+} from '@/src/types/settings';
+import { upsertPronunciationOverride } from '@/src/utils/pronunciation';
 
 type SettingsState = AppSettings & {
   setVoice: (voiceId?: string, voiceName?: string) => void;
@@ -11,6 +18,13 @@ type SettingsState = AppSettings & {
   setTtsProvider: (provider: TtsProvider) => void;
   setLocalVoice: (voice: string) => void;
   setViewMode: (mode: ViewMode) => void;
+  addPronunciation: (term: string, pronunciation: string) => void;
+  updatePronunciation: (
+    id: string,
+    patch: Pick<PronunciationOverride, 'term' | 'pronunciation'>
+  ) => void;
+  setPronunciations: (pronunciations: PronunciationOverride[]) => void;
+  removePronunciation: (id: string) => void;
   reset: () => void;
 };
 
@@ -21,7 +35,8 @@ const DEFAULTS: AppSettings = {
   skipping: 'none',
   ttsProvider: 'elevenlabs',
   localVoice: 'alloy',
-  viewMode: 'reflowed'
+  viewMode: 'reflowed',
+  pronunciations: []
 };
 
 const MIN_SPEED = 0.7;
@@ -42,6 +57,23 @@ export const useSettingsStore = create<SettingsState>()(
       setTtsProvider: provider => set({ ttsProvider: provider }),
       setLocalVoice: voice => set({ localVoice: voice }),
       setViewMode: mode => set({ viewMode: mode }),
+      addPronunciation: (term, pronunciation) =>
+        set(state => ({
+          pronunciations: upsertPronunciationOverride(state.pronunciations, term, pronunciation)
+        })),
+      updatePronunciation: (id, patch) =>
+        set(state => ({
+          pronunciations: state.pronunciations.map(item =>
+            item.id === id
+              ? { ...item, term: patch.term.trim(), pronunciation: patch.pronunciation.trim() }
+              : item
+          )
+        })),
+      setPronunciations: pronunciations => set({ pronunciations }),
+      removePronunciation: id =>
+        set(state => ({
+          pronunciations: state.pronunciations.filter(item => item.id !== id)
+        })),
       reset: () => set({ ...DEFAULTS })
     }),
     {

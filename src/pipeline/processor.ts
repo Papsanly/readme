@@ -43,12 +43,12 @@ import { Directory, File } from 'expo-file-system';
 
 import { getDefaultDatalabClient } from '@/src/api/datalab';
 import { getDefaultVlmClient, vlmBlockToBlock } from '@/src/api/vlm';
+import { getEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
 import { renderPdfToPages } from '@/src/pipeline/pdf';
 import { writeCoverFromPage } from '@/src/storage/books';
 import { loadBookOcr, mergeOcrPage, rawPageToOcrPage, saveBookOcr } from '@/src/storage/ocr';
 import { paths } from '@/src/storage/paths';
 import { useLibraryStore } from '@/src/state/library';
-import { useSettingsStore } from '@/src/state/settings';
 import type { Block } from '@/src/types/book';
 import type { OcrBlock, OcrPage } from '@/src/types/ocr';
 import type {
@@ -208,8 +208,14 @@ async function runProcessBook(
       return { bookId, blocks, pageCount: 0 };
     }
 
-    const settings = useSettingsStore.getState();
+    const settings = getEffectiveSettings(bookId);
     const context: VlmContext = { skipping: settings.skipping };
+    if (settings.pronunciations.length > 0) {
+      context.glossary = settings.pronunciations.map(({ term, pronunciation }) => ({
+        term,
+        pronunciation
+      }));
+    }
     if (bookTitle) context.bookTitle = bookTitle;
     if (bookDescription) context.bookDescription = bookDescription;
 

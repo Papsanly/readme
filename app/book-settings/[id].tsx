@@ -1,10 +1,12 @@
 import { Directory } from 'expo-file-system';
 import { router, useLocalSearchParams, type Href } from 'expo-router';
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
 import { OfflineSection, SectionHeader } from '@/src/components/settings';
 import {
+  Button,
+  IconSymbol,
   ListItem,
   Screen,
   SegmentedControl,
@@ -23,7 +25,8 @@ import { deleteBookOcr } from '@/src/storage/ocr';
 import { paths } from '@/src/storage/paths';
 import { useLibraryStore } from '@/src/state/library';
 import { useSettingsStore } from '@/src/state/settings';
-import type { SkippingMode, TtsProvider } from '@/src/types/settings';
+import type { PronunciationOverride, SkippingMode, TtsProvider } from '@/src/types/settings';
+import { upsertPronunciationOverride } from '@/src/utils/pronunciation';
 
 const SPEED_MIN = 0.7;
 const SPEED_MAX = 1.5;
@@ -67,7 +70,10 @@ export default function BookSettingsScreen() {
   const globalTtsProvider = useSettingsStore(s => s.ttsProvider);
   const globalVoiceName = useSettingsStore(s => s.voiceName);
   const globalLocalVoice = useSettingsStore(s => s.localVoice);
+  const globalPronunciations = useSettingsStore(s => s.pronunciations);
   const [reprocessing, setReprocessing] = useState(false);
+  const [pronunciationTerm, setPronunciationTerm] = useState('');
+  const [pronunciationValue, setPronunciationValue] = useState('');
 
   const setSpeedOverride = useCallback(
     (value: number | undefined) => {
@@ -89,6 +95,14 @@ export default function BookSettingsScreen() {
     (value: TtsProvider | undefined) => {
       if (!bookId) return;
       useLibraryStore.getState().setSettingsOverride(bookId, { ttsProvider: value });
+    },
+    [bookId]
+  );
+
+  const setBookPronunciations = useCallback(
+    (items: PronunciationOverride[] | undefined) => {
+      if (!bookId) return;
+      useLibraryStore.getState().setSettingsOverride(bookId, { pronunciations: items });
     },
     [bookId]
   );
@@ -191,6 +205,35 @@ export default function BookSettingsScreen() {
     );
   }, [bookId, book, runReprocess]);
 
+  const handleAddPronunciation = useCallback(() => {
+    const next = upsertPronunciationOverride(
+      override?.pronunciations,
+      pronunciationTerm,
+      pronunciationValue
+    );
+    setBookPronunciations(next.length > 0 ? next : undefined);
+    setPronunciationTerm('');
+    setPronunciationValue('');
+  }, [override?.pronunciations, pronunciationTerm, pronunciationValue, setBookPronunciations]);
+
+  const handleRemovePronunciation = useCallback(
+    (item: PronunciationOverride) => {
+      const remove = () => {
+        const next = (override?.pronunciations ?? []).filter(existing => existing.id !== item.id);
+        setBookPronunciations(next.length > 0 ? next : undefined);
+      };
+      Alert.alert(
+        'Delete book pronunciation?',
+        `Remove pronunciation override for "${item.term}"?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: remove }
+        ]
+      );
+    },
+    [override?.pronunciations, setBookPronunciations]
+  );
+
   if (!bookId) return null;
 
   const speedOverridden = override?.speed !== undefined;
@@ -200,6 +243,9 @@ export default function BookSettingsScreen() {
     effective.ttsProvider === 'elevenlabs'
       ? override?.voiceId !== undefined
       : override?.localVoice !== undefined;
+  const bookPronunciations = override?.pronunciations ?? [];
+  const canSavePronunciation =
+    pronunciationTerm.trim().length > 0 && pronunciationValue.trim().length > 0;
 
   const effectiveVoiceLabel =
     effective.ttsProvider === 'elevenlabs'
@@ -340,6 +386,137 @@ export default function BookSettingsScreen() {
         </View>
       </View>
 
+      <SectionHeader title="Pronunciations" />
+      <View
+        style={[
+          styles.section,
+          { paddingHorizontal: spacing.lg, paddingBottom: spacing.lg, gap: spacing.md }
+        ]}
+      >
+        <Text style={{ color: colors.textMuted, fontSize: fontSize.caption }}>
+          Effective dictionary: {effective.pronunciations.length} total (
+          {globalPronunciations.length} global + {bookPronunciations.length} for this book).
+          Book-specific entries are added on top of global entries and take precedence for matching
+          terms.
+        </Text>
+
+        <View style={{ gap: spacing.xs }}>
+          <Text
+            style={{
+              color: colors.text,
+              fontSize: fontSize.body,
+              fontWeight: fontWeight.semibold
+            }}
+          >
+            Term in this book
+          </Text>
+          <TextInput
+            value={pronunciationTerm}
+            onChangeText={setPronunciationTerm}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.bgElevated,
+                borderColor: colors.border,
+                borderRadius: 12,
+                color: colors.text,
+                fontSize: fontSize.body,
+                paddingHorizontal: spacing.md
+              }
+            ]}
+          />
+        </View>
+
+        <View style={{ gap: spacing.xs }}>
+          <Text
+            style={{
+              color: colors.text,
+              fontSize: fontSize.body,
+              fontWeight: fontWeight.semibold
+            }}
+          >
+            Pronounce as
+          </Text>
+          <TextInput
+            value={pronunciationValue}
+            onChangeText={setPronunciationValue}
+            autoCapitalize="none"
+            autoCorrect={false}
+            style={[
+              styles.input,
+              {
+                backgroundColor: colors.bgElevated,
+                borderColor: colors.border,
+                borderRadius: 12,
+                color: colors.text,
+                fontSize: fontSize.body,
+                paddingHorizontal: spacing.md
+              }
+            ]}
+          />
+        </View>
+
+        <Button
+          title="Add for this book"
+          onPress={handleAddPronunciation}
+          disabled={!canSavePronunciation}
+          fullWidth
+        />
+
+        {bookPronunciations.length > 0 ? (
+          <View style={{ gap: spacing.sm }}>
+            {bookPronunciations.map(item => (
+              <View
+                key={item.id}
+                style={[
+                  styles.pronunciationItem,
+                  {
+                    backgroundColor: colors.bgElevated,
+                    borderRadius: 12,
+                    padding: spacing.md,
+                    gap: spacing.md
+                  }
+                ]}
+              >
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Text
+                    style={{
+                      color: colors.text,
+                      fontSize: fontSize.body,
+                      fontWeight: fontWeight.semibold
+                    }}
+                    numberOfLines={1}
+                  >
+                    {item.term}
+                  </Text>
+                  <Text
+                    style={{ color: colors.textMuted, fontSize: fontSize.caption, marginTop: 2 }}
+                    numberOfLines={2}
+                  >
+                    Book pronounces as: {item.pronunciation}
+                  </Text>
+                </View>
+                <Pressable
+                  onPress={() => handleRemovePronunciation(item)}
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete book pronunciation for ${item.term}`}
+                  hitSlop={8}
+                  style={({ pressed }) => [styles.deleteButton, { opacity: pressed ? 0.6 : 1 }]}
+                >
+                  <IconSymbol name="trash" size={20} color={colors.danger} />
+                </Pressable>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={{ color: colors.textMuted, fontSize: fontSize.caption }}>
+            No book-specific pronunciations yet. Global pronunciations still apply.
+          </Text>
+        )}
+      </View>
+
       <View style={[styles.note, { paddingHorizontal: spacing.lg, marginTop: spacing.md }]}>
         <Text
           style={{
@@ -417,5 +594,11 @@ const styles = StyleSheet.create({
   section: {},
   row: { flexDirection: 'row', alignItems: 'center' },
   metaRow: { flexDirection: 'row', alignItems: 'center' },
+  input: {
+    minHeight: 48,
+    borderWidth: StyleSheet.hairlineWidth
+  },
+  pronunciationItem: { flexDirection: 'row', alignItems: 'center' },
+  deleteButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   note: {}
 });

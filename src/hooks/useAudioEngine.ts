@@ -1,4 +1,10 @@
-import { createAudioPlayer, type AudioPlayer } from 'expo-audio';
+import {
+  createAudioPlayer,
+  type AudioMetadata,
+  type AudioPlayer,
+  type AudioStatus
+} from 'expo-audio';
+import { File } from 'expo-file-system';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { getEffectiveSettings, useEffectiveSettings } from '@/src/hooks/useEffectiveSettings';
@@ -7,8 +13,10 @@ import { invalidateVoice, prefetchBlocks, synthesizeBlockToFile } from '@/src/pi
 import { useLibraryStore } from '@/src/state/library';
 import { usePlayerStore } from '@/src/state/player';
 import { hasCachedAudio } from '@/src/storage/audioCache';
-import type { Block } from '@/src/types/book';
+import { paths } from '@/src/storage/paths';
+import type { Block, Book } from '@/src/types/book';
 import { findSmartMainContentIndex } from '@/src/utils/mainContent';
+import { applyPronunciationsToText, pronunciationCacheKey } from '@/src/utils/pronunciation';
 import type { SkippingMode } from '@/src/types/settings';
 
 /** ElevenLabs server-side speed cap. Anything outside is clamped *for the API call* only. */
@@ -220,14 +228,58 @@ function describeError(err: unknown): string {
   return String(err);
 }
 
+function fileExists(uri: string): boolean {
+  try {
+    return new File(uri).exists;
+  } catch {
+    return false;
+  }
+}
+
+function artworkUriForBook(book: Book): string | undefined {
+  const candidates = [book.coverUri, paths.bookCover(book.id), paths.bookPage(book.id, 1)];
+  for (const uri of candidates) {
+    if (!uri) continue;
+    if (/^https?:\/\//i.test(uri)) return uri;
+    if (/^file:\/\//i.test(uri) && fileExists(uri)) return uri;
+  }
+  return undefined;
+}
+
+function compactText(text: string | undefined, maxLength = 80): string | undefined {
+  const clean = text?.replace(/\s+/g, ' ').trim();
+  if (!clean) return undefined;
+  if (clean.length <= maxLength) return clean;
+  return `${clean.slice(0, maxLength - 1).trimEnd()}…`;
+}
+
+function buildLockScreenMetadata(
+  book: Book,
+  currentBlock: Block | undefined,
+  currentPage: number,
+  totalPages: number
+): AudioMetadata {
+  const pageLabel =
+    currentPage > 0 ? `Page ${currentPage}${totalPages > 0 ? ` of ${totalPages}` : ''}` : 'ReadMe';
+  const section = currentBlock?.type === 'heading' ? compactText(currentBlock.text) : undefined;
+  const artworkUrl = artworkUriForBook(book);
+  return {
+    title: book.title,
+    artist: pageLabel,
+    albumTitle: section ?? 'ReadMe audiobook',
+    ...(artworkUrl ? { artworkUrl } : {})
+  };
+}
+
 /**
  * Drives a single shared `expo-audio` player from the current player/settings/library state.
  * The hook is the only owner of the underlying `AudioPlayer` — mount it once per Player screen.
  */
 export function useAudioEngine(bookId: string): UseAudioEngineResult {
   // ----- Reactive sources -------------------------------------------------
-  const blocks = useLibraryStore(s => s.books[bookId]?.blocks) ?? EMPTY_BLOCKS;
-  const knownPageTotal = useLibraryStore(s => s.books[bookId]?.processingProgress?.total ?? 0);
+  const book = useLibraryStore(s => s.books[bookId]);
+  const blocks = book?.blocks ?? EMPTY_BLOCKS;
+  const knownPageTotal = book?.processingProgress?.total ?? 0;
   const currentBlockIndex = usePlayerStore(s => s.currentBlockIndex);
   const isPlaying = usePlayerStore(s => s.isPlaying);
   // Effective (global + per-book override) reading settings.
@@ -237,6 +289,8 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   const skipping = effective.skipping;
   const ttsProvider = effective.ttsProvider;
   const localVoice = effective.localVoice;
+  const pronunciations = effective.pronunciations;
+  const pronunciationKey = useMemo(() => pronunciationCacheKey(pronunciations), [pronunciations]);
 
   // ----- Local state ------------------------------------------------------
   const [isReady, setIsReady] = useState(false);
@@ -256,10 +310,15 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   const playerRef = useRef<AudioPlayer | null>(null);
   const loadAbortRef = useRef<AbortController | null>(null);
   const prefetchAbortRef = useRef<AbortController | null>(null);
+  const lockScreenActiveRef = useRef(false);
+  const ignoreNativePauseUntilReadyRef = useRef(false);
+  const bookIdRef = useRef(bookId);
+  bookIdRef.current = bookId;
   const lastTtsSpeedRef = useRef<number>(clampTtsSpeed(speed));
   const lastVoiceIdRef = useRef<string | undefined>(voiceId);
   const lastLocalVoiceRef = useRef<string | undefined>(localVoice);
   const lastTtsProviderRef = useRef(ttsProvider);
+  const lastPronunciationKeyRef = useRef(pronunciationKey);
   /**
    * `true` while we've fired the finish-handler for the current source and
    * haven't yet swapped in the next source. While this is set, all
@@ -330,9 +389,24 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocks, currentBlock, currentBlockId, positionSec, speed, durationsTick, knownPageTotal]);
 
+  function syncNativePlaybackState(status: AudioStatus): void {
+    const state = usePlayerStore.getState();
+    if (state.currentBookId !== bookIdRef.current) return;
+    if (status.playing) {
+      if (!state.isPlaying) state.play();
+      return;
+    }
+    if (ignoreNativePauseUntilReadyRef.current) return;
+    if (!status.isLoaded || status.isBuffering || status.timeControlStatus !== 'paused') return;
+    if (state.isPlaying) state.pause();
+  }
+
   // ----- Player lifecycle: create once, release on unmount ---------------
   useEffect(() => {
-    const player = createAudioPlayer(null, { updateInterval: PLAYER_UPDATE_INTERVAL_MS });
+    const player = createAudioPlayer(null, {
+      updateInterval: PLAYER_UPDATE_INTERVAL_MS,
+      keepAudioSessionActive: true
+    });
     playerRef.current = player;
 
     const subscription = player.addListener('playbackStatusUpdate', status => {
@@ -350,21 +424,53 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
         // Real, non-finished update — the new source is producing events,
         // so any old-source backlog is gone. Re-arm the gate.
         transitioningRef.current = false;
+        syncNativePlaybackState(status);
       }
     });
 
     return () => {
       subscription.remove();
       try {
+        player.clearLockScreenControls();
+      } catch (err) {
+        console.warn('[player] failed to clear lock screen controls', err);
+      }
+      try {
         player.remove();
       } catch (err) {
         console.warn('[player] failed to release audio player', err);
       }
       playerRef.current = null;
+      lockScreenActiveRef.current = false;
     };
     // The player is created once per Player-screen mount; the bookId is read via
     // refs/state inside event handlers, so we don't recreate on bookId changes.
   }, []);
+
+  useEffect(() => {
+    const player = playerRef.current;
+    if (!player || !book) return;
+    const metadata = buildLockScreenMetadata(
+      book,
+      currentBlock,
+      pageProgress.currentPage,
+      pageProgress.totalPages
+    );
+
+    try {
+      if (lockScreenActiveRef.current) {
+        player.updateLockScreenMetadata(metadata);
+      } else {
+        player.setActiveForLockScreen(true, metadata, {
+          showSeekBackward: true,
+          showSeekForward: true
+        });
+        lockScreenActiveRef.current = true;
+      }
+    } catch (err) {
+      console.warn('[player] failed to update lock screen controls', err);
+    }
+  }, [book, currentBlock, pageProgress.currentPage, pageProgress.totalPages]);
 
   // Record the current block's duration whenever a fresh, non-zero value
   // arrives from the player. This populates `knownDurationsRef` so the page
@@ -413,6 +519,10 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
       lastTtsProviderRef.current = ttsProvider;
       invalidated = true;
     }
+    if (lastPronunciationKeyRef.current !== pronunciationKey) {
+      lastPronunciationKeyRef.current = pronunciationKey;
+      invalidated = true;
+    }
     if (lastTtsSpeedRef.current !== newTtsSpeed) {
       lastTtsSpeedRef.current = newTtsSpeed;
       invalidated = true;
@@ -423,7 +533,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
       });
       setCacheEpoch(epoch => epoch + 1);
     }
-  }, [bookId, voiceId, localVoice, ttsProvider, speed]);
+  }, [bookId, voiceId, localVoice, ttsProvider, pronunciationKey, speed]);
 
   // ----- Apply rate to player whenever speed changes ---------------------
   useEffect(() => {
@@ -477,8 +587,10 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
           // Cold path: stop old audio NOW (synth may take 1-30s), show
           // the spinner, then synthesize.
           try {
+            ignoreNativePauseUntilReadyRef.current = true;
             player.pause();
           } catch (err) {
+            ignoreNativePauseUntilReadyRef.current = false;
             console.warn('[player] pre-load pause failed', err);
           }
           setIsReady(false);
@@ -490,7 +602,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
             synthesizeBlockToFile({
               bookId,
               blockId: block.id,
-              text: block.text,
+              text: applyPronunciationsToText(block.text, pronunciations),
               voiceId,
               voiceSettings: { speed: ttsSpeed }
             }),
@@ -533,6 +645,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
 
         setIsLoadingBlock(false);
         setIsReady(true);
+        ignoreNativePauseUntilReadyRef.current = false;
 
         if (usePlayerStore.getState().isPlaying) {
           try {
@@ -543,6 +656,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
         }
       } catch (err) {
         if (ac.signal.aborted) return;
+        ignoreNativePauseUntilReadyRef.current = false;
         setIsLoadingBlock(false);
         setIsReady(false);
         setBlockError(describeError(err));
@@ -567,7 +681,8 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     localVoice,
     speed,
     cacheEpoch,
-    ttsProvider
+    ttsProvider,
+    pronunciations
   ]);
 
   // ----- Drive play/pause on the player when isPlaying flips -------------
@@ -637,7 +752,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
       if (next == null) break;
       const block = blocksNow[next];
       if (!block) break;
-      queue.push({ id: block.id, text: block.text });
+      queue.push({ id: block.id, text: applyPronunciationsToText(block.text, pronunciations) });
       cursor = next;
     }
 
@@ -652,7 +767,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
         if (firstNextIdx != null) {
           const b = blocksNow[firstNextIdx];
           if (b && !queue.some(q => q.id === b.id)) {
-            queue.push({ id: b.id, text: b.text });
+            queue.push({ id: b.id, text: applyPronunciationsToText(b.text, pronunciations) });
           }
         }
       }
@@ -686,7 +801,8 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     speed,
     skipping,
     cacheEpoch,
-    ttsProvider
+    ttsProvider,
+    pronunciations
   ]);
 
   // ----- Imperative callbacks --------------------------------------------

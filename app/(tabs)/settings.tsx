@@ -24,11 +24,13 @@ export default function SettingsScreen() {
   const skipping = useSettingsStore(s => s.skipping);
   const ttsProvider = useSettingsStore(s => s.ttsProvider);
   const localVoice = useSettingsStore(s => s.localVoice);
+  const pronunciations = useSettingsStore(s => s.pronunciations);
 
   const goVoice = () => router.push('/settings/voice' as Href);
   const goLocalVoice = () => router.push('/settings/local-voice' as Href);
   const goSkipping = () => router.push('/settings/skipping' as Href);
   const goTtsProvider = () => router.push('/settings/tts-provider' as Href);
+  const goPronunciations = () => router.push('/settings/pronunciations' as Href);
   const goAbout = () => router.push('/settings/about' as Href);
   const goBackup = () => router.push('/settings/backup' as Href);
 
@@ -75,6 +77,11 @@ export default function SettingsScreen() {
           title="Block skipping"
           right={<RightValue value={SKIPPING_LABELS[skipping]} />}
           onPress={goSkipping}
+        />
+        <ListItem
+          title="Pronunciations"
+          right={<RightValue value={`${pronunciations.length}`} />}
+          onPress={goPronunciations}
           showSeparator={false}
         />
       </View>
