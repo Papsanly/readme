@@ -113,12 +113,38 @@
 #include "parts/part5-user-manual/main.typ"
 #metadata((kind: "diploma-doc-end", id: "kk"))
 
-// 6. Графічний матеріал — кількість листів рахується за рисунками пояснювальної записки
+// 6. Графічний матеріал
+#start-part()
 #metadata((
   kind: "diploma-doc-start",
   id: "graphic",
   format: "A3",
   mark: cipher-graphic,
   name: "Графічний матеріал",
-  source: "part2-graphics",
 ))
+#include "parts/part6-graphic/main.typ"
+#metadata((kind: "diploma-doc-end", id: "graphic"))
+
+// Додаток: звіт перевірки на плагіат
+#pagebreak()
+#{
+  set page(width: 8.5in, height: 11in, margin: 0pt, numbering: none)
+  set par(first-line-indent: 0em, justify: false)
+
+  for page-no in range(1, 5) {
+    box(
+      width: 100%,
+      height: 100%,
+      image(
+        "/docs/paper/assets/plagiarism/plagiarism-" + str(page-no) + ".png",
+        width: 100%,
+        height: 100%,
+        fit: "cover",
+      ),
+    )
+
+    if page-no < 4 {
+      pagebreak()
+    }
+  }
+}

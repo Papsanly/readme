@@ -1,9 +1,21 @@
 #import "../../data.typ": *
 #import "../../template/utils.typ": field
 
+#let pz-headings() = query(
+  heading.where(level: 1, outlined: true).after(<part2-content-start>).before(<part2-content-end>),
+)
+#let pz-section-headings() = pz-headings().filter(h => h.numbering != none)
+#let pz-section-count() = context pz-section-headings().len()
+#let pz-section-number-list() = context range(1, pz-section-headings().len() + 1).map(str).join(", ")
+#let pz-table-count() = context query(
+  figure.where(kind: table).after(<part2-content-start>).before(<part2-content-end>),
+).len()
+#let pz-image-count() = context query(
+  figure.where(kind: image).after(<part2-content-start>).before(<part2-content-end>),
+).len()
+
 #let pz-section-list() = context {
-  let heads = query(heading.where(level: 1, outlined: true).after(<part2-content-start>).before(<part2-content-end>))
-  for (i, h) in heads.enumerate() {
+  for (i, h) in pz-headings().enumerate() {
     field(box(width: 100%, align(left, [#(i + 1)) #h.body])), w: 100%)
     linebreak()
   }
@@ -24,8 +36,8 @@
   #align(center)[
     НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\
     «КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ імені ІГОРЯ СІКОРСЬКОГО»\
-    #field(faculty, w: 10.5cm, caption: [повна назва інституту/факультету])
-    #field(department, w: 9.5cm, caption: [повна назва кафедри])
+    #field(faculty, w: 10.5cm, caption: [(повна назва інституту/факультету)])
+    #field(department, w: 9.5cm, caption: [(повна назва кафедри)])
   ]
 
   #v(0.7em)
@@ -37,7 +49,7 @@
       #set par(spacing: 5pt)
       «До захисту допущено»\
       Завідувач кафедри \
-      #field(none, w: 6em, caption: [підпис]) #h(0.4em) #field(dept-head-name, w: 9em, caption: [ім'я прізвище]) \
+      #field(none, w: 6em, caption: [(підпис)]) #h(0.4em) #field(dept-head-name, w: 9em, caption: [(ім'я прізвище)]) \
       “#field(none, w: 1.5em)” #field(none, w: 8em) #year р.
     ],
   )
@@ -64,28 +76,28 @@
     grid.cell(rowspan: 2)[Виконав],
     [#field([студент IV курсу, групи #group], w: 100%)],
     [],
-    [#field(author-full, w: 100%, caption: [прізвище, ім'я, по батькові])],
-    [#field(none, w: 3.2cm, caption: [підпис])],
+    [#field(author-full, w: 100%, caption: [(прізвище, ім'я, по батькові)])],
+    [#field(none, w: 3.2cm, caption: [(підпис)])],
 
     [Керівник],
     [#field(
       [асистент, Храмченко М. С.],
       w: 100%,
-      caption: [посада, науковий ступінь, вчене звання, прізвище та ініціали],
+      caption: [(посада, науковий ступінь, вчене звання, прізвище та ініціали)],
     )],
-    [#field(none, w: 3.2cm, caption: [підпис])],
+    [#field(none, w: 3.2cm, caption: [(підпис)])],
 
     [Консультант],
     [#field(
       [асистент, Шулькевич Т. В.],
       w: 100%,
-      caption: [посада, науковий ступінь, вчене звання, прізвище та ініціали],
+      caption: [(посада, науковий ступінь, вчене звання, прізвище та ініціали)],
     )],
-    [#field(none, w: 3.2cm, caption: [підпис])],
+    [#field(none, w: 3.2cm, caption: [(підпис)])],
 
     [Рецензент],
-    [#field(none, w: 100%, caption: [посада, науковий ступінь, вчене звання, прізвище та ініціали])],
-    [#field(none, w: 3.2cm, caption: [підпис])],
+    [#field(none, w: 100%, caption: [(посада, науковий ступінь, вчене звання, прізвище та ініціали)])],
+    [#field(none, w: 3.2cm, caption: [(підпис)])],
   )
 
   #v(1em)
@@ -102,7 +114,7 @@
       #grid(
         columns: (auto, 4cm),
         column-gutter: 0.8em,
-        [Студент], [#field(none, w: 4cm, caption: [підпис])],
+        [Студент], [#field(none, w: 4cm, caption: [(підпис)])],
       )
     ],
   )
@@ -137,7 +149,9 @@
         [Завідувач кафедри],
         [#grid(
           columns: (4.5em, 0.7em, 9em),
-          [#field(none, w: 4.5em, caption: [підпис])], [], [#field(dept-head-name, w: 9em, caption: [ім'я прізвище])],
+          [#field(none, w: 4.5em, caption: [(підпис)])],
+          [],
+          [#field(dept-head-name, w: 9em, caption: [(ім'я прізвище)])],
         )],
         [#block(above: 0.45em)[“#field(none, w: 1.5em)” #field(none, w: 7em) #year р.]],
       )
@@ -149,7 +163,7 @@
     #text(weight: "bold")[ЗАВДАННЯ]\
     #text(weight: "bold")[на дипломний проект студенту]
   ]
-  #align(center)[#field(author-full, w: 100%, caption: [прізвище, ім'я, по батькові])]
+  #align(center)[#field(author-full, w: 100%, caption: [(прізвище, ім'я, по батькові)])]
 
   #v(0.8em)
   #grid(
@@ -160,7 +174,7 @@
     [#field(
       align(left, [асистент, Храмченко М. С.]),
       w: 100%,
-      caption: [прізвище, ім'я, по батькові, науковий ступінь, вчене звання],
+      caption: [(прізвище, ім'я, по батькові, науковий ступінь, вчене звання)],
     )],
   )
 
@@ -193,7 +207,7 @@
         [завдання видав],
         [завдання прийняв],
       ),
-      [1, 2, 3, 4, 5], [асистент, Храмченко М. С.], [ ], [ ],
+      [#pz-section-number-list()], [асистент, Храмченко М. С.], [ ], [ ],
     )
   ]
 
@@ -233,17 +247,42 @@
     row-gutter: 0.8em,
     [Студент],
     [],
-    [#field(none, w: 4cm, caption: [підпис])],
+    [#field(none, w: 4cm, caption: [(підпис)])],
     [],
-    [#field(author-short, w: 6cm, caption: [ініціали, прізвище])],
+    [#field(author-short, w: 6cm, caption: [(ініціали, прізвище)])],
 
     [Керівник],
     [],
-    [#field(none, w: 4cm, caption: [підпис])],
+    [#field(none, w: 4cm, caption: [(підпис)])],
     [],
-    [#field([Храмченко М. С.], w: 6cm, caption: [ініціали, прізвище])],
+    [#field(head-name, w: 6cm, caption: [(ініціали, прізвище)])],
   )
 ]
+
+#let diploma-doc-metas() = query(metadata).filter(m => (
+  type(m.value) == dictionary and m.value.kind == "diploma-doc-start"
+))
+#let diploma-doc-end(id) = (
+  query(metadata)
+    .filter(m => type(m.value) == dictionary and m.value.kind == "diploma-doc-end" and m.value.id == id)
+    .at(0, default: none)
+)
+#let diploma-doc-pages(doc) = {
+  let end = diploma-doc-end(doc.value.id)
+  if end == none {
+    ""
+  } else {
+    let start-page = doc.location().page()
+    let end-page = end.location().page()
+    let pages = calc.abs(end-page - start-page) + 1
+    str(if doc.value.id == "graphic" { pages - 1 } else { pages })
+  }
+}
+#let diploma-doc-by-id(id) = diploma-doc-metas().filter(doc => doc.value.id == id).at(0, default: none)
+#let diploma-pages-by-id(id) = context {
+  let doc = diploma-doc-by-id(id)
+  if doc == none { "" } else { diploma-doc-pages(doc) }
+}
 
 #let annotation-pages() = [
   #set page(numbering: none)
@@ -251,7 +290,7 @@
 
   #align(center)[#text(weight: "bold")[АНОТАЦІЯ]]
 
-  Пояснювальна записка дипломного проекту складається з п'яти розділів, містить #context query(figure.where(kind: table)).len() таблиць, #context query(figure.where(kind: image)).len() рисунків, #sources-count використаних джерел та додатки — загалом #context counter(page).final().first() сторінок.
+  Пояснювальна записка дипломного проекту складається з #pz-section-count() розділів, містить #pz-table-count() таблиць, #pz-image-count() рисунків, #sources-count використаних джерел та додатки — загалом #diploma-pages-by-id("pz") сторінок.
 
   Дипломний проект присвячено розробленню мобільного застосунку ReadMe для перетворення документів довільних форматів на аудіокниги з використанням методів штучного інтелекту. Актуальність роботи зумовлена потребою у зручному прослуховуванні наукових статей, сканованих книг та інших документів зі складною просторовою структурою, для яких традиційний каскад OCR + TTS часто озвучує службові елементи сторінки та не виконує семантичної підготовки тексту до мовлення.
 
@@ -267,7 +306,7 @@
 
   #align(center)[#text(weight: "bold")[ABSTRACT]]
 
-  The explanatory note of the diploma project consists of five sections and contains #context query(figure.where(kind: table)).len() tables, #context query(figure.where(kind: image)).len() figures, #sources-count references and appendices — #context counter(page).final().first() pages in total.
+  The explanatory note of the diploma project consists of #pz-section-count() sections and contains #pz-table-count() tables, #pz-image-count() figures, #sources-count references and appendices — #diploma-pages-by-id("pz") pages in total.
 
   The diploma project is devoted to the development of ReadMe, a mobile application for converting documents of various formats into audiobooks using artificial intelligence methods. The relevance of the project is determined by the need for comfortable audio consumption of scientific papers, scanned books and other documents with complex spatial layouts, where a traditional OCR + TTS pipeline often reads page service elements aloud and does not prepare the text semantically for narration.
 
@@ -408,30 +447,7 @@
   )
 }
 
-#let diploma-doc-metas() = query(metadata).filter(m => (
-  type(m.value) == dictionary and m.value.kind == "diploma-doc-start"
-))
-#let diploma-doc-end(id) = (
-  query(metadata)
-    .filter(m => type(m.value) == dictionary and m.value.kind == "diploma-doc-end" and m.value.id == id)
-    .at(0, default: none)
-)
-#let diploma-doc-pages(doc) = {
-  let end = diploma-doc-end(doc.value.id)
-  if end == none {
-    ""
-  } else {
-    let start-page = doc.location().page()
-    let end-page = end.location().page()
-    str(calc.abs(end-page - start-page) + 1)
-  }
-}
-
-#let diploma-statement() = context {
-  let docs = diploma-doc-metas()
-  let doc-by-id(id) = docs.filter(doc => doc.value.id == id).first()
-  let pages-by-id(id) = diploma-doc-pages(doc-by-id(id))
-
+#let diploma-statement() = {
   graphic-material(
     [],
     code: cipher-vedomist,
@@ -442,48 +458,48 @@
       [А4],
       [],
       [Завдання на дипломний проєкт],
-      [#pages-by-id("task")],
+      [#diploma-pages-by-id("task")],
       [],
       // row 2
       [2],
       [А4],
       [#cipher-tz],
       [Технічне завдання],
-      [#pages-by-id("tz")],
+      [#diploma-pages-by-id("tz")],
       [],
       // row 3
       [3],
       [А4],
       [#cipher-pz],
       [Пояснювальна записка],
-      [#pages-by-id("pz")],
+      [#diploma-pages-by-id("pz")],
       [],
       // row 4
       [4],
       [А4],
       [#cipher-tp],
       [Текст програми],
-      [#pages-by-id("tp")],
+      [#diploma-pages-by-id("tp")],
       [],
       // row 5
       [5],
       [А4],
       [#cipher-pmt],
       [Програма та методика тестування],
-      [#pages-by-id("pmt")],
+      [#diploma-pages-by-id("pmt")],
       [],
       // row 6
       [6],
       [А4],
       [#cipher-kk],
       [Керівництво користувача],
-      [#pages-by-id("kk")],
+      [#diploma-pages-by-id("kk")],
       [],
       [7],
       [А3],
       [#cipher-graphic],
       [Графічний матеріал],
-      text(fill: red)[xx],
+      [#diploma-pages-by-id("graphic")],
       [],
     ),
   )
