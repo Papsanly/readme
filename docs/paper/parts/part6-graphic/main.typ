@@ -68,51 +68,81 @@
   #align(center)[Київ – #year]
 ]
 
-#let stamp(title, sheet: "1", total: "6") = table(
-  columns: (1.2cm, 1.2cm, 2.7cm, 1.3cm, 1.3cm, 7cm, 1.2cm, 1.2cm, 1.7cm, 1.7cm),
-  rows: (0.7cm, 0.7cm, 0.7cm, 0.7cm, 0.7cm),
-  inset: 3pt,
-  stroke: 1pt,
-  align: center + horizon,
-  text(size: 8pt)[Змін.],
-  text(size: 8pt)[Арк.],
-  text(size: 8pt)[№ докум.],
-  text(size: 8pt)[Підп.],
-  text(size: 8pt)[Дата],
-  table.cell(colspan: 5, rowspan: 2, align: center + horizon)[#cipher-graphic],
+#let stamp(sheet-title, sheet: "1", total: "6") = {
+  let small = text.with(size: 7pt)
+  table(
+    columns: (auto, auto, 2.4cm, auto, auto, 8.8cm, 0.45cm, 0.45cm, 0.45cm, auto, auto),
+    rows: (0.4cm,) * 11,
+    inset: 2pt,
+    stroke: 1pt,
+    align: center + horizon,
 
-  text(size: 8pt)[Розроб.],
-  text(size: 8pt)[Лисенко А. Ю.],
-  [],
-  [],
-  [],
+    // Empty revision rows above the signature header.
+    ..range(4).map(y => range(5).map(x => table.cell(x: x, y: y)[])).flatten(),
 
-  text(size: 8pt)[Перевір.],
-  text(size: 8pt)[Храмченко М. С.],
-  [],
-  [],
-  [],
-  table.cell(colspan: 2, rowspan: 3, align: center + horizon)[#text(size: 9pt)[#title]],
-  text(size: 8pt)[Літ.],
-  text(size: 8pt)[Аркуш],
-  text(size: 8pt)[Аркушів],
+    table.cell(x: 0, y: 4)[#small[Зм.]],
+    table.cell(x: 1, y: 4)[#small[Арк.]],
+    table.cell(x: 2, y: 4)[#small[№ докум.]],
+    table.cell(x: 3, y: 4)[#small[Підп.]],
+    table.cell(x: 4, y: 4)[#small[Дата]],
 
-  text(size: 8pt)[Н. контр.],
-  text(size: 8pt)[Шулькевич Т. В.],
-  [],
-  [],
-  [],
-  [],
-  text(size: 8pt)[#sheet],
-  text(size: 8pt)[#total],
+    table.cell(x: 0, y: 5, colspan: 2)[#small[Розробив]],
+    table.cell(x: 2, y: 5)[#small[Лисенко А. Ю.]],
+    table.cell(x: 3, y: 5)[],
+    table.cell(x: 4, y: 5)[],
 
-  text(size: 8pt)[Затв.],
-  text(size: 8pt)[Жаріков Е. В.],
-  [],
-  [],
-  [],
-  table.cell(colspan: 3, align: center + horizon)[#text(size: 8pt)[КПІ ім. Ігоря Сікорського\ ФІОТ каф. ІПІ гр. ІП-24]],
-)
+    table.cell(x: 0, y: 6, colspan: 2)[#small[Перевірив]],
+    table.cell(x: 2, y: 6)[#small[Храмченко М. С.]],
+    table.cell(x: 3, y: 6)[],
+    table.cell(x: 4, y: 6)[],
+
+    table.cell(x: 0, y: 7, colspan: 2)[#small[Т. контр.]],
+    table.cell(x: 2, y: 7)[],
+    table.cell(x: 3, y: 7)[],
+    table.cell(x: 4, y: 7)[],
+
+    table.cell(x: 0, y: 8, colspan: 2)[],
+    table.cell(x: 2, y: 8)[],
+    table.cell(x: 3, y: 8)[],
+    table.cell(x: 4, y: 8)[],
+
+    table.cell(x: 0, y: 9, colspan: 2)[#small[Н. контр.]],
+    table.cell(x: 2, y: 9)[#small[Шулькевич Т. В.]],
+    table.cell(x: 3, y: 9)[],
+    table.cell(x: 4, y: 9)[],
+
+    table.cell(x: 0, y: 10, colspan: 2)[#small[Затвердив]],
+    table.cell(x: 2, y: 10)[#small[Жаріков Е. В.]],
+    table.cell(x: 3, y: 10)[],
+    table.cell(x: 4, y: 10)[],
+
+    table.cell(x: 5, y: 0, colspan: 6, rowspan: 3, align: center + horizon)[#text(size: 10pt)[#cipher-graphic]],
+    table.cell(x: 5, y: 3, rowspan: 5, align: center + horizon)[#text(size: 9pt)[#sheet-title]],
+
+    table.cell(x: 6, y: 3, colspan: 3)[#small[Літ.]],
+    table.cell(x: 9, y: 3)[#small[Маса]],
+    table.cell(x: 10, y: 3)[#small[Масштаб]],
+    table.cell(x: 6, y: 4, rowspan: 2)[],
+    table.cell(x: 7, y: 4, rowspan: 2)[],
+    table.cell(x: 8, y: 4, rowspan: 2)[],
+    table.cell(x: 9, y: 4, rowspan: 2)[],
+    table.cell(x: 10, y: 4, rowspan: 2)[],
+
+    table.cell(x: 6, y: 6, colspan: 4)[#small[Аркуш]],
+    table.cell(x: 10, y: 6)[#small[Аркушів]],
+    table.cell(x: 6, y: 7, colspan: 4)[#small[#sheet]],
+    table.cell(x: 10, y: 7)[#small[#total]],
+
+    table.cell(x: 5, y: 8, rowspan: 3, align: center + horizon)[#text(size: 8pt)[#title]],
+    table.cell(
+      x: 6,
+      y: 8,
+      colspan: 5,
+      rowspan: 3,
+      align: center + horizon,
+    )[#small[КПІ ім. Ігоря Сікорського\ ФІОТ каф. ІПІ гр. ІП-24]],
+  )
+}
 
 #let graphic-sheet(path, name, sheet: "1", total: "6") = [
   #set page(width: 297mm, height: 420mm, margin: 10mm, numbering: none)
@@ -120,7 +150,7 @@
   #set par(first-line-indent: 0em, justify: false)
 
   #let top-code-height = 1cm
-  #let stamp-height = 3.5cm
+  #let stamp-height = 4.4cm
   #let drawing-padding = 0.7cm
   #let drawing-area-height = 40cm - top-code-height - stamp-height
 
