@@ -115,9 +115,14 @@
 )
 
 #let graphic-sheet(path, name, sheet: "1", total: "6") = [
-  #set page(width: 420mm, height: 297mm, margin: 10mm, numbering: none)
+  #set page(width: 297mm, height: 420mm, margin: 10mm, numbering: none)
   #set text(size: 12pt)
   #set par(first-line-indent: 0em, justify: false)
+
+  #let top-code-height = 1cm
+  #let stamp-height = 3.5cm
+  #let drawing-padding = 0.7cm
+  #let drawing-area-height = 40cm - top-code-height - stamp-height
 
   #box(
     width: 100%,
@@ -125,13 +130,24 @@
     stroke: 2pt + black,
     inset: 0pt,
     [
-      #place(top + center, dy: 0.5cm)[#rotate(-90deg, reflow: true)[#cipher-graphic]]
-      #place(center)[#box(width: 34cm, height: 19cm, align(center + horizon, image(
-        path,
+      #place(top + left)[#box(
+        width: 5.6cm,
+        height: 1cm,
+        stroke: 2pt + black,
+        inset: 0pt,
+        align(center + horizon, rotate(180deg, reflow: true)[#text(size: 10pt)[#cipher-graphic]]),
+      )]
+      #place(top + left, dy: top-code-height)[#box(
         width: 100%,
-        height: 100%,
-        fit: "contain",
-      )))]
+        height: drawing-area-height,
+        inset: drawing-padding,
+        align(center + horizon, image(
+          path,
+          width: 100%,
+          height: 100%,
+          fit: "contain",
+        )),
+      )]
       #place(bottom + right)[#stamp(name, sheet: sheet, total: total)]
     ],
   )
