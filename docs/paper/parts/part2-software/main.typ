@@ -1,5 +1,8 @@
 // Part 2 (ПЗ) — labels bound the scope so the outline picks only this part.
-#[
+#let render-part2-software(
+  include-references: true,
+  include-appendices: true,
+) = [
   #metadata("part2-pz-start")<part2-pz-start>
 
   // Зміст
@@ -22,8 +25,16 @@
   #include "4-quality.typ"
   #include "5-deployment.typ"
   #include "conclusions.typ"
-  #include "references.typ"
-  #include "appendices.typ"
+
+  #if include-references {
+    include "references.typ"
+  }
+
+  #if include-appendices {
+    include "appendices.typ"
+  }
 
   #metadata("part2-pz-end")<part2-pz-end>
 ]
+
+#render-part2-software()

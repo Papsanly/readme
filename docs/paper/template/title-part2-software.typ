@@ -1,3 +1,5 @@
+#import "utils.typ": field
+
 #let title-part2-software(
   title: none,
   cipher: none,
@@ -15,7 +17,7 @@
 
   v(1em)
 
-  [на тему: *#underline[#title]*]
+  [на тему: *#field(title)*]
 
   v(2em)
 

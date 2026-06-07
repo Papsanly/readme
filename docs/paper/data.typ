@@ -11,9 +11,15 @@
 //   doc_serial: 01 = ТЗ, 02 = ПЗ, 03 = Текст програми, ...
 //   doc_type:   91 = ТЗ, 81 = ПЗ, 12 = Текст програми, ...
 #let cipher-base = "КПІ.ІП-1119.045440"
+#let cipher-vedomist = cipher-base + ".00.90"
 #let cipher-tz = cipher-base + ".01.91"
 #let cipher-pz = cipher-base + ".02.81"
 #let cipher-tp = cipher-base + ".03.12"
+#let cipher-pmt = cipher-base + ".04.51"
+#let cipher-kk = cipher-base + ".05.34"
+#let cipher-graphic = cipher-base + ".06.99"
+
+
 
 // Source code repository
 #let repo-url = "https://github.com/papsanly/readme"
@@ -23,7 +29,7 @@
 #let author-short = "Андрій ЛИСЕНКО"
 #let group = "ІП-24"
 #let course = "4"
-#let speciality = "121 «Інженерія програмного забезпечення»"
+#let speciality = "121 Інженерія програмного забезпечення"
 
 // People
 #let dept-head-name = "Едуард ЖАРІКОВ"

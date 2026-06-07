@@ -16,14 +16,26 @@
       if is-empty(content) [] else [#align(center, content)],
     )
   } else {
-    // block: content centered above full line, then italic caption below
-    stack(
-      dir: ttb,
-      spacing: 4pt,
-      align(center, if is-empty(content) [] else { content }),
-      line(length: w, stroke: 1pt + black),
+    // block: reserve one text row above the line even for empty fields,
+    // so empty signature fields align with filled fields. Caption stays below.
+    let content-part = box(
+      width: w,
+      height: 1em,
+      if is-empty(content) { [] } else { align(center + bottom, content) },
     )
-    block(above: 2pt, width: 100%, align(center, small[#caption]))
+    let line-part = line(length: w, stroke: 1pt + black)
+    let caption-part = box(width: w, align(center, small[#caption]))
+
+    box(
+      width: w,
+      stack(
+        dir: ttb,
+        spacing: 2pt,
+        content-part,
+        line-part,
+        caption-part,
+      ),
+    )
   }
 }
 
@@ -39,4 +51,3 @@
     lines.slice(from - 1, end).join("\n"),
   )
 }
-
