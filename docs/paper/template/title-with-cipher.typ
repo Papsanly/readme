@@ -1,5 +1,5 @@
 #import "utils.typ": field
-#import "../data.typ": faculty, department
+#import "../data.typ": department, faculty
 
 // Title page with the ratification block (ЗАТВЕРДЖЕНО / ПОГОДЖЕНО / Нормоконтроль).
 // Used for parts that require department head approval — Part 1 (ТЗ) and Part 3 (Текст програми).
@@ -13,7 +13,7 @@
   author-name: none,
   year: none,
 ) = {
-  set par(first-line-indent: 0em, justify: false, leading: 0.7em)
+  set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
 
   let placeholder(content) = text(fill: red)[#content]
   let norm-control-display = if norm-control-name == none { placeholder[Ім'я ПРІЗВИЩЕ] } else { norm-control-name }
@@ -32,7 +32,7 @@
 
     Завідувач кафедри
 
-    #field(none, w: 7em) #h(0.5em) #dept-head-name
+    #field(none, w: 5em) #h(0.5em) #dept-head-name
 
     "#field(none, w: 1.5em)" #field(none, w: 8em) #year р.
   ])

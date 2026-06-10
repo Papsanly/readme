@@ -1,3 +1,5 @@
+#import "../../template/utils.typ": diploma-outline
+
 // Part 2 (ПЗ) — labels bound the scope so the outline picks only this part.
 #let render-part2-software(
   include-references: true,
@@ -12,10 +14,7 @@
     heading(level: 1)[Зміст]
   }
 
-  #outline(
-    title: none,
-    target: heading.where(outlined: true).after(<part2-pz-start>).before(<part2-pz-end>),
-  )
+  #diploma-outline(heading.where(outlined: true).after(<part2-pz-start>).before(<part2-pz-end>))
 
   #include "abbreviations.typ"
   #include "introduction.typ"

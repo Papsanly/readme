@@ -1,5 +1,5 @@
 #import "utils.typ": field
-#import "../data.typ": university-full, institute, faculty, department, speciality
+#import "../data.typ": department, faculty, institute, speciality, university-full
 
 #let title-page(
   course: none,
@@ -18,7 +18,7 @@
   dept-head-name: none,
   year: none,
 ) = {
-  set par(first-line-indent: 0em, justify: false, leading: 0.7em)
+  set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
 
   align(center)[
     #university-full

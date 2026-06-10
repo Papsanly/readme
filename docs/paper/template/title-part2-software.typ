@@ -5,14 +5,14 @@
   cipher: none,
   year: none,
 ) = {
-  set par(first-line-indent: 0em, justify: false, leading: 0.7em)
+  set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
 
   v(15em)
 
   align(center)[
-    *Пояснювальна записка*
+    #text(size: 18pt, weight: "bold")[Пояснювальна записка]
 
-    *до дипломного проєкту*
+    #text(size: 16pt, weight: "bold")[до дипломного проєкту]
   ]
 
   v(1em)

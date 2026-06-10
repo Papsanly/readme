@@ -4,7 +4,7 @@
 ) = {
   set page(
     paper: "a4",
-    margin: 2cm,
+    margin: (left: 30mm, top: 20mm, bottom: 20mm, right: 10mm),
     numbering: (current, ..) => {
       if current > 1 { current }
     },
@@ -19,19 +19,20 @@
 
   set par(
     justify: true,
-    first-line-indent: (amount: 1cm, all: true),
-    leading: 0.65em,
+    first-line-indent: (amount: 1.25cm, all: true),
+    leading: 1.2em,
+    spacing: 1.2em,
   )
 
   show raw: set text(font: "JetBrainsMono NF", size: 10pt)
 
   // DSTU bullet markers — em-dash for all nesting levels.
-  set list(marker: ([–], [–], [–]))
+  set list(marker: ([–], [–], [–]), spacing: 1.2em)
 
   set heading(numbering: "1.1")
 
   show heading: set text(size: 14pt, weight: "bold")
-  show heading: set block(below: 0.4cm, above: 0.6cm)
+  show heading: set block(below: 0.6cm, above: 0.6cm)
   show heading: set par(first-line-indent: 0em)
 
   show heading.where(level: 1): it => {
@@ -43,10 +44,10 @@
 
   // Figures and tables — separate counters, both reset at each level-1 heading.
   show figure.where(kind: image): set figure(
-    numbering: n => context [#counter(heading).get().first().#n]
+    numbering: n => context [#counter(heading).get().first().#n],
   )
   show figure.where(kind: table): set figure(
-    numbering: n => context [#counter(heading).get().first().#n]
+    numbering: n => context [#counter(heading).get().first().#n],
   )
 
   show figure.where(kind: table): set figure.caption(position: top)
@@ -67,8 +68,9 @@
     it
   }
 
-  show table: set table.cell(breakable: true)
+  show table: set table.cell(breakable: false)
   show figure: set block(breakable: true)
+  show figure.where(kind: table): set block(breakable: false)
 
   show outline.entry.where(level: 1): upper
 

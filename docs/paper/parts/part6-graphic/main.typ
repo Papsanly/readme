@@ -2,9 +2,9 @@
 #import "../../template/utils.typ": field
 
 #let graphic-title() = [
-  #set page(numbering: none, margin: 2cm)
+  #set page(numbering: none, margin: (left: 30mm, top: 20mm, bottom: 20mm, right: 10mm))
   #set text(size: 14pt)
-  #set par(first-line-indent: 0em, justify: false, leading: 0.7em)
+  #set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
 
   #align(center)[
     #faculty
@@ -68,7 +68,7 @@
   #align(center)[Київ – #year]
 ]
 
-#let stamp(sheet-title, sheet: "1", total: "6") = {
+#let stamp(sheet-title, code, sheet: "1", total: "6") = {
   let small = text.with(size: 7pt)
   table(
     columns: (auto, auto, 2.4cm, auto, auto, 8.8cm, 0.45cm, 0.45cm, 0.45cm, auto, auto),
@@ -116,7 +116,7 @@
     table.cell(x: 3, y: 10)[],
     table.cell(x: 4, y: 10)[],
 
-    table.cell(x: 5, y: 0, colspan: 6, rowspan: 3, align: center + horizon)[#text(size: 10pt)[#cipher-graphic]],
+    table.cell(x: 5, y: 0, colspan: 6, rowspan: 3, align: center + horizon)[#text(size: 10pt)[#code]],
     table.cell(x: 5, y: 3, rowspan: 5, align: center + horizon)[#text(size: 9pt)[#sheet-title]],
 
     table.cell(x: 6, y: 3, colspan: 3)[#small[Літ.]],
@@ -144,10 +144,10 @@
   )
 }
 
-#let graphic-sheet(path, name, sheet: "1", total: "6") = [
+#let graphic-sheet(path, name, code, sheet: "1", total: "6") = [
   #set page(width: 297mm, height: 420mm, margin: 10mm, numbering: none)
   #set text(size: 12pt)
-  #set par(first-line-indent: 0em, justify: false)
+  #set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
 
   #let top-code-height = 1cm
   #let stamp-height = 4.4cm
@@ -165,7 +165,7 @@
         height: 1cm,
         stroke: 2pt + black,
         inset: 0pt,
-        align(center + horizon, rotate(180deg, reflow: true)[#text(size: 10pt)[#cipher-graphic]]),
+        align(center + horizon, rotate(180deg, reflow: true)[#text(size: 9pt)[#code]]),
       )]
       #place(top + left, dy: top-code-height)[#box(
         width: 100%,
@@ -178,24 +178,32 @@
           fit: "contain",
         )),
       )]
-      #place(bottom + right)[#stamp(name, sheet: sheet, total: total)]
+      #place(bottom + right)[#stamp(name, code, sheet: sheet, total: total)]
     ],
   )
 ]
 
 #let graphics = (
-  (path: "/docs/paper/assets/bpmn.svg", name: [Бізнес-процес створення аудіоозвучення документа]),
-  (path: "/docs/paper/assets/use-case.png", name: [Діаграма варіантів використання]),
-  (path: "/docs/paper/assets/c4-l1.png", name: [Контекстна діаграма (C4 Level 1)]),
-  (path: "/docs/paper/assets/c4-l2.png", name: [Діаграма контейнерів (C4 Level 2)]),
-  (path: "/docs/paper/assets/c4-l3.png", name: [Діаграма компонентів серверної частини (C4 Level 3)]),
-  (path: "/docs/paper/assets/deployment.png", name: [Діаграма розгортання]),
+  (
+    path: "/docs/paper/assets/bpmn.svg",
+    name: [Бізнес-процес створення аудіоозвучення документа],
+    code: cipher-graphic + " ССД",
+  ),
+  (path: "/docs/paper/assets/use-case.png", name: [Діаграма варіантів використання], code: cipher-graphic + " ССВ"),
+  (path: "/docs/paper/assets/c4-l1.png", name: [Контекстна діаграма (C4 Level 1)], code: cipher-graphic + " ССМ"),
+  (path: "/docs/paper/assets/c4-l2.png", name: [Діаграма контейнерів (C4 Level 2)], code: cipher-graphic + " ССМ"),
+  (
+    path: "/docs/paper/assets/c4-l3.png",
+    name: [Діаграма компонентів серверної частини (C4 Level 3)],
+    code: cipher-graphic + " ССМ",
+  ),
+  (path: "/docs/paper/assets/deployment.png", name: [Діаграма розгортання], code: cipher-graphic + " ССМ"),
 )
 
 #graphic-title()
 #pagebreak()
 #for (i, item) in graphics.enumerate() {
-  graphic-sheet(item.path, item.name, sheet: str(i + 1), total: str(graphics.len()))
+  graphic-sheet(item.path, item.name, item.code, sheet: str(i + 1), total: str(graphics.len()))
   if i + 1 < graphics.len() {
     pagebreak()
   }

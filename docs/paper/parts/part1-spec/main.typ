@@ -1,3 +1,5 @@
+#import "../../template/utils.typ": diploma-outline
+
 // Part 1 (ТЗ) — labels bound the scope so the outline picks only this part.
 #[
   #metadata("part1-tz-start")<part1-tz-start>
@@ -9,10 +11,7 @@
     heading(level: 1)[Зміст]
   }
 
-  #outline(
-    title: none,
-    target: heading.where(outlined: true).after(<part1-tz-start>).before(<part1-tz-end>),
-  )
+  #diploma-outline(heading.where(outlined: true).after(<part1-tz-start>).before(<part1-tz-end>))
 
   #include "1-scope.typ"
   #include "2-basis.typ"

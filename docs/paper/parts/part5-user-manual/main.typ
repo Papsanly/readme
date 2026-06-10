@@ -1,3 +1,5 @@
+#import "../../template/utils.typ": diploma-outline
+
 // Part 5 (КК) — Керівництво користувача.
 #let manual-screenshot(caption, label-name, filename) = {
   block(width: 100%, breakable: false)[
@@ -21,10 +23,7 @@
     heading(level: 1)[Зміст]
   }
 
-  #outline(
-    title: none,
-    target: heading.where(outlined: true).after(<part5-kk-start>).before(<part5-kk-end>),
-  )
+  #diploma-outline(heading.where(outlined: true).after(<part5-kk-start>).before(<part5-kk-end>))
 
   = Призначення програми
 

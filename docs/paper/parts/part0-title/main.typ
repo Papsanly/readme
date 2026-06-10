@@ -30,14 +30,14 @@
 }
 
 #let title-main() = [
-  #set page(numbering: none, margin: (x: 2cm, y: 1.45cm))
-  #set text(size: 13.5pt)
+  #set page(numbering: none, margin: (left: 30mm, top: 20mm, bottom: 20mm, right: 10mm))
+  #set text(size: 14pt)
 
   #align(center)[
     НАЦІОНАЛЬНИЙ ТЕХНІЧНИЙ УНІВЕРСИТЕТ УКРАЇНИ\
-    «КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ імені ІГОРЯ СІКОРСЬКОГО»\
-    #field(faculty, w: 10.5cm, caption: [(повна назва інституту/факультету)])
-    #field(department, w: 9.5cm, caption: [(повна назва кафедри)])
+    «КИЇВСЬКИЙ ПОЛІТЕХНІЧНИЙ ІНСТИТУТ імені ІГОРЯ СІКОРСЬКОГО» \
+    #field(faculty, w: 11cm, caption: [(повна назва інституту/факультету)])
+    #field(department, w: 10cm, caption: [(повна назва кафедри)])
   ]
 
   #v(0.7em)
@@ -124,8 +124,8 @@
 ]
 
 #let task-pages() = [
-  #set page(numbering: none, margin: (x: 2cm, y: 1.45cm))
-  #set text(size: 13.5pt)
+  #set page(numbering: none, margin: (left: 30mm, top: 20mm, bottom: 20mm, right: 10mm))
+  #set text(size: 14pt)
 
   #align(center)[
     Національний технічний університет України\
@@ -172,23 +172,21 @@
     [1. Тема проєкту#h(0.6em)], [#field(box(width: 100%, align(left, title)), w: 100%)],
     block(inset: (top: 0.3em))[керівник проєкту#h(0.6em)],
     [#field(
-      align(left, [асистент, Храмченко М. С.]),
+      align(left, [Храмченко М. С., асистент]),
       w: 100%,
       caption: [(прізвище, ім'я, по батькові, науковий ступінь, вчене звання)],
     )],
   )
 
-  затверджені наказом по університету від “#field(none, w: 1.5em)” #field(none, w: 5em) #year р. №#field(none, w: 5em)
+  затверджені наказом по університету від “#field([23])” #field([травня]) #year р. №#field([1705-с])
 
-  2. Термін подання студентом проекту “13” червня #year року
+  2. Термін подання студентом проекту “14” червня #year року
 
   3. Вихідні дані до проекту: #field([технічне завдання])
 
   4. Зміст пояснювальної записки
 
   #pz-section-list()
-
-  #pagebreak()
 
   5. Перелік графічного матеріалу
 
@@ -207,7 +205,7 @@
         [завдання видав],
         [завдання прийняв],
       ),
-      [#pz-section-number-list()], [асистент, Храмченко М. С.], [ ], [ ],
+      [#pz-section-number-list()], [Храмченко М. С., асистент], [ ], [ ],
     )
   ]
 
@@ -237,7 +235,7 @@
       [10], [Оформлення пояснювальної записки], [01.06.#year], [],
       [11], [Подання ДП на попередній захист], [02.06.#year], [],
       [12], [Подання ДП рецензенту], [10.06.#year], [],
-      [13], [Подання ДП на основний захист], [13.06.#year], [],
+      [13], [Подання ДП на основний захист], [14.06.#year], [],
     )
   ]
 
@@ -324,8 +322,9 @@
 }
 
 #let graphic-material(body, data: (), author: "", code: "") = {
-  set page(margin: 2cm)
+  set page(numbering: none, margin: (left: 30mm, top: 20mm, bottom: 20mm, right: 10mm))
   set text(size: 12pt)
+  set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
 
   table(
     columns: 11,
@@ -506,13 +505,15 @@
 }
 
 #{
-  set par(first-line-indent: 0em, justify: false)
+  {
+    set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
 
-  title-main()
-  pagebreak()
-  metadata((kind: "diploma-doc-start", id: "task", format: "A4", mark: "", name: "Завдання на дипломний проект"))
-  task-pages()
-  metadata((kind: "diploma-doc-end", id: "task"))
+    title-main()
+    pagebreak()
+    metadata((kind: "diploma-doc-start", id: "task", format: "A4", mark: "", name: "Завдання на дипломний проект"))
+    task-pages()
+    metadata((kind: "diploma-doc-end", id: "task"))
+  }
   pagebreak()
   annotation-pages()
   pagebreak()
