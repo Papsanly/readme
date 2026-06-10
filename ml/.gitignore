@@ -1,0 +1,12 @@
+.venv-gpu/
+.cache/
+**/__pycache__/
+train/outputs/
+
+# Local/generated datasets and rendered pages
+data/
+
+# Local evaluation outputs
+eval/*predictions*.jsonl
+eval/*report.json
+eval/*_eval*.json

@@ -1,0 +1,31 @@
+{
+  "model_name_or_path": "Qwen/Qwen2.5-VL-3B-Instruct",
+  "dataset_train": "../data/dataset/sft_train_final.jsonl",
+  "dataset_validation": "../data/dataset/sft_val_final.jsonl",
+  "dataset_test": "../data/dataset/sft_test_final.jsonl",
+  "method": "behavioral_distillation_sft_lora",
+  "output_dir": "./outputs/qwen25vl-3b-document-to-tts-lora",
+  "num_train_epochs": 3,
+  "learning_rate": 0.0001,
+  "warmup_ratio": 0.03,
+  "weight_decay": 0.01,
+  "lora": {
+    "r": 16,
+    "alpha": 32,
+    "dropout": 0.05,
+    "target_modules": ["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]
+  },
+  "batching": {
+    "per_device_train_batch_size": 1,
+    "per_device_eval_batch_size": 1,
+    "gradient_accumulation_steps": 16
+  },
+  "precision": "bf16_if_available_else_fp16",
+  "evaluation": {
+    "strategy": "steps",
+    "eval_steps": 50,
+    "save_steps": 50,
+    "metric_for_best_model": "schema_valid_rate"
+  },
+  "notes": "Starting config. Adjust image resolution and batch parameters to available GPU memory."
+}
