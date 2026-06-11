@@ -1,3 +1,3 @@
 # readme
 
-Mobile app for converting documents to high-quality audiobooks via VLM + TTS. Bachelor thesis @ KPI 2026.
+mobile app for converting documents to high-quality audiobooks via vlm + tts. bachelor thesis @ kpi 2026.
