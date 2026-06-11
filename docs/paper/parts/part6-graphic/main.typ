@@ -1,71 +1,18 @@
 #import "../../data.typ": *
-#import "../../template/utils.typ": field
+#import "../../template/title-with-cipher.typ": title-with-cipher
 
 #let graphic-title() = [
   #set page(numbering: none, margin: (left: 30mm, top: 20mm, bottom: 20mm, right: 10mm))
-  #set text(size: 14pt)
-  #set par(first-line-indent: 0em, justify: false, leading: 0.7em, spacing: 1.2em)
-
-  #align(center)[
-    #faculty
-
-    #department
-  ]
-
-  #v(2em)
-
-  #pad(left: 52%, align(right)[
-    "ЗАТВЕРДЖЕНО"
-
-    Завідувач кафедри
-
-    #field(none, w: 7em) #h(0.5em) #dept-head-name
-
-    “#field(none, w: 1.5em)” #field(none, w: 8em) #year р.
-  ])
-
-  #v(8em)
-
-  #align(center)[
-    #text(weight: "bold")[#upper(title)]
-
-    #text(weight: "bold")[Графічний матеріал]
-
-    #cipher-graphic
-  ]
-
-  #v(8em)
-
-  #block[
-    "ПОГОДЖЕНО"
-
-    Керівник проєкту:
-
-    #field(none, w: 7em) #h(0.5em) Микола ХРАМЧЕНКО
-  ]
-
-  #v(2.5em)
-
-  #grid(
-    columns: (1fr, 1fr),
-    gutter: 2em,
-    [
-      Нормоконтроль:
-
-      #v(0.3em)
-      #field(none, w: 5em) #h(0.5em) Тетяна ШУЛЬКЕВИЧ
-    ],
-    [
-      Виконавець:
-
-      #v(0.3em)
-      #field(none, w: 5em) #h(0.5em) Андрій ЛИСЕНКО
-    ],
+  #title-with-cipher(
+    title: title,
+    subtitle: "Графічний матеріал",
+    cipher: cipher-graphic,
+    dept-head-name: dept-head-name,
+    head-name: head-name,
+    norm-control-name: norm-control-name,
+    author-name: author-short,
+    year: year,
   )
-
-  #v(1fr)
-
-  #align(center)[Київ – #year]
 ]
 
 #let stamp(sheet-title, code, sheet: "1", total: "6") = {
@@ -186,18 +133,34 @@
 #let graphics = (
   (
     path: "/docs/paper/assets/bpmn.svg",
-    name: [Бізнес-процес створення аудіоозвучення документа],
+    name: [Схема структурна діяльності створення аудіоозвучення документа],
     code: cipher-graphic + " ССД",
   ),
-  (path: "/docs/paper/assets/use-case.png", name: [Діаграма варіантів використання], code: cipher-graphic + " ССВ"),
-  (path: "/docs/paper/assets/c4-l1.png", name: [Контекстна діаграма (C4 Level 1)], code: cipher-graphic + " ССМ"),
-  (path: "/docs/paper/assets/c4-l2.png", name: [Діаграма контейнерів (C4 Level 2)], code: cipher-graphic + " ССМ"),
   (
-    path: "/docs/paper/assets/c4-l3.png",
-    name: [Діаграма компонентів серверної частини (C4 Level 3)],
+    path: "/docs/paper/assets/use-case.png",
+    name: [Схема структурна варіантів використань],
+    code: cipher-graphic + " ССВ",
+  ),
+  (
+    path: "/docs/paper/assets/c4-l1.png",
+    name: [Схема структурна компонентів програмного забезпечення. Контекст системи],
     code: cipher-graphic + " ССМ",
   ),
-  (path: "/docs/paper/assets/deployment.png", name: [Діаграма розгортання], code: cipher-graphic + " ССМ"),
+  (
+    path: "/docs/paper/assets/c4-l2.png",
+    name: [Схема структурна компонентів програмного забезпечення. Контейнери системи],
+    code: cipher-graphic + " ССМ",
+  ),
+  (
+    path: "/docs/paper/assets/c4-l3.png",
+    name: [Схема структурна компонентів програмного забезпечення серверної частини],
+    code: cipher-graphic + " ССМ",
+  ),
+  (
+    path: "/docs/paper/assets/deployment.png",
+    name: [Структура мережі розгортання програмного забезпечення],
+    code: cipher-graphic + " ССМ",
+  ),
 )
 
 #graphic-title()

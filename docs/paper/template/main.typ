@@ -42,6 +42,8 @@
     align(center, upper(it))
   }
 
+  show heading.where(level: 4): it => block(inset: (left: 1.25cm))[#it]
+
   // Figures and tables — separate counters, both reset at each level-1 heading.
   show figure.where(kind: image): set figure(
     numbering: n => context [#counter(heading).get().first().#n],

@@ -40,6 +40,7 @@
 }
 
 #let diploma-outline(target) = {
+  set text(size: 14pt)
   set par(
     first-line-indent: 0em,
     justify: false,
