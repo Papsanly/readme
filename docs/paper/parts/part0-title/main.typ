@@ -21,10 +21,16 @@
   }
 }
 
+#let graphic-material-list-items = (
+  [Схема структурна діяльності створення аудіоозвучення документа],
+  [Схема структурна варіантів використань],
+  [Схема структурна компонентів програмного забезпечення],
+  [Структура мережі розгортання програмного забезпечення],
+)
+
 #let graphic-material-list() = context {
-  let figs = query(figure.where(kind: image).after(<part2-content-start>).before(<part2-content-end>))
-  for (i, f) in figs.enumerate() {
-    field(box(width: 100%, align(left, [#(i + 1)) #f.caption.body])), w: 100%)
+  for (i, item) in graphic-material-list-items.enumerate() {
+    field(box(width: 100%, align(left, [#(i + 1)) #item])), w: 100%)
     linebreak()
   }
 }
