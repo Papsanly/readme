@@ -35,6 +35,9 @@
 #let dept-head-name = "Едуард ЖАРІКОВ"
 #let head-name = "Микола ХРАМЧЕНКО"
 #let norm-control-name = "Тетяна ШУЛЬКЕВИЧ"
+#let reviewer-position = "асистент кафедри ІСТ"
+#let reviewer-name = "Олексій СМОВЖЕНКО"
+#let reviewer-short = "Смовженко О. Л."
 
 // University
 #let university-full = "Національний технічний університет України"
