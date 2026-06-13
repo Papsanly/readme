@@ -1,5 +1,5 @@
 {
-  "version": "2.11",
+  "version": "2.13",
   "children": [
     {
       "type": "frame",
@@ -148,6 +148,16 @@
               "fontFamily": "Inter",
               "fontSize": 16,
               "fontWeight": "600"
+            },
+            {
+              "type": "text",
+              "id": "G5eSgj",
+              "name": "Supervisor",
+              "fill": "#334155",
+              "content": "Керівник: асистент, Храмченко М. С.",
+              "fontFamily": "Inter",
+              "fontSize": 15,
+              "fontWeight": "500"
             }
           ]
         }
@@ -269,11 +279,9 @@
                   "width": "fill_container",
                   "fill": "#FEF2F2",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#FECACA"
-                  },
+                  "stroke": "#FECACA",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 14,
                   "padding": 28,
@@ -286,12 +294,12 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "icon_font",
+                          "type": "icon",
                           "id": "DAh6N",
                           "width": 18,
                           "height": 18,
-                          "iconFontName": "circle-x",
-                          "iconFontFamily": "lucide",
+                          "icon": "circle-x",
+                          "library": "lucide",
                           "fill": "#DC2626"
                         },
                         {
@@ -326,11 +334,9 @@
                   "width": "fill_container",
                   "fill": "#EFF6FF",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#BFDBFE"
-                  },
+                  "stroke": "#BFDBFE",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 14,
                   "padding": 28,
@@ -343,12 +349,12 @@
                       "alignItems": "center",
                       "children": [
                         {
-                          "type": "icon_font",
+                          "type": "icon",
                           "id": "V90RC",
                           "width": 18,
                           "height": 18,
-                          "iconFontName": "circle-check",
-                          "iconFontFamily": "lucide",
+                          "icon": "circle-check",
+                          "library": "lucide",
                           "fill": "#1E40AF"
                         },
                         {
@@ -368,7 +374,7 @@
                       "fill": "#1E3A8A",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "VLM — семантичне ядро pipeline: розуміє розкладку сторінки, пропускає службові елементи, нормалізує абревіатури і омографи, додає теги емоцій для TTS.",
+                      "content": "VLM — семантичне ядро обробки: розуміє розкладку сторінки, пропускає службові елементи, нормалізує абревіатури й омографи, додає мітки емоцій для TTS.",
                       "lineHeight": 1.55,
                       "fontFamily": "Inter",
                       "fontSize": 14,
@@ -561,7 +567,7 @@
                           "fill": "#0F172A",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Спроектувати pipeline-архітектуру з VLM як семантичним ядром обробки документа.",
+                          "content": "Спроєктувати конвеєрну архітектуру з VLM як семантичним ядром обробки документа.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 17,
@@ -604,7 +610,7 @@
                           "fill": "#0F172A",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Реалізувати мобільний клієнт (iOS / Android) зі streaming-обробкою документів та фоновим відтворенням аудіо.",
+                          "content": "Реалізувати мобільний клієнт (iOS / Android) з потоковою обробкою документів та фоновим відтворенням аудіо.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 17,
@@ -647,7 +653,7 @@
                           "fill": "#0F172A",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Інтегрувати компоненти pipeline: рендеринг PDF (pdf.js), OCR-розкладку (datalab.to), VLM (Claude), TTS (ElevenLabs).",
+                          "content": "Інтегрувати компоненти конвеєра: рендеринг PDF (pdf.js), OCR-розкладку (datalab.to), VLM (Claude), TTS (ElevenLabs).",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 17,
@@ -690,7 +696,7 @@
                           "fill": "#0F172A",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Реалізувати UI: бібліотека, плеєр (reflowed + original view), outline, sleep-timer, налаштування читання.",
+                          "content": "Реалізувати інтерфейс: бібліотека, плеєр (переформатований і оригінальний вигляд), зміст, таймер сну, налаштування читання.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 17,
@@ -733,7 +739,7 @@
                           "fill": "#0F172A",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Спроектувати схему дистиляції teacher-student для перенесення поведінки великої VLM у меншу спеціалізовану модель.",
+                          "content": "Спроєктувати схему дистиляції teacher–student для перенесення поведінки великої VLM у меншу спеціалізовану модель.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 17,
@@ -799,7 +805,7 @@
               "fill": "#0F172A",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "VLM-центричний pipeline на рівні контейнерів (C4 L2)",
+              "content": "VLM-центричний конвеєр на рівні контейнерів (C4 L2)",
               "lineHeight": 1.25,
               "fontFamily": "Inter",
               "fontSize": 30,
@@ -870,7 +876,7 @@
                       "type": "text",
                       "id": "h90xN",
                       "fill": "#334155",
-                      "content": "Mobile client (Expo)",
+                      "content": "Мобільний клієнт (Expo)",
                       "fontFamily": "Inter",
                       "fontSize": 13,
                       "fontWeight": "600"
@@ -895,7 +901,7 @@
                       "type": "text",
                       "id": "UN8bW",
                       "fill": "#334155",
-                      "content": "Backend orchestrator + ML inference",
+                      "content": "Серверний оркестратор + ML-інференс",
                       "fontFamily": "Inter",
                       "fontSize": 13,
                       "fontWeight": "600"
@@ -920,7 +926,7 @@
                       "type": "text",
                       "id": "TKBw2",
                       "fill": "#334155",
-                      "content": "External: datalab.to, ElevenLabs",
+                      "content": "Зовнішні сервіси: datalab.to, ElevenLabs",
                       "fontFamily": "Inter",
                       "fontSize": 13,
                       "fontWeight": "600"
@@ -971,7 +977,7 @@
               "type": "text",
               "id": "H9q1qk",
               "fill": "#1E40AF",
-              "content": "05 · PIPELINE ОБРОБКИ ДОКУМЕНТА",
+              "content": "05 · КОНВЕЄР ОБРОБКИ ДОКУМЕНТА",
               "fontFamily": "Inter",
               "fontSize": 13,
               "fontWeight": "700",
@@ -981,7 +987,7 @@
               "type": "text",
               "id": "I7GPPC",
               "fill": "#0F172A",
-              "content": "Streaming-обробка з паралельним OCR і VLM",
+              "content": "Потокова обробка з паралельним OCR і VLM",
               "fontFamily": "Inter",
               "fontSize": 30,
               "fontWeight": "700"
@@ -1028,11 +1034,9 @@
                   "height": 160,
                   "fill": "#F8FAFC",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E2E8F0"
-                  },
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 10,
                   "padding": 18,
@@ -1040,12 +1044,12 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "b6WKb3",
                       "width": 32,
                       "height": 32,
-                      "iconFontName": "file-text",
-                      "iconFontFamily": "lucide",
+                      "icon": "file-text",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -1061,7 +1065,7 @@
                       "type": "text",
                       "id": "QKC0n",
                       "fill": "#64748B",
-                      "content": "PDF · EPUB · image",
+                      "content": "PDF · EPUB · зображення",
                       "textAlign": "center",
                       "fontFamily": "Inter",
                       "fontSize": 11,
@@ -1070,13 +1074,13 @@
                   ]
                 },
                 {
-                  "type": "icon_font",
+                  "type": "icon",
                   "id": "kvE2e",
                   "name": "arr1",
                   "width": 22,
                   "height": 22,
-                  "iconFontName": "chevron-right",
-                  "iconFontFamily": "lucide",
+                  "icon": "chevron-right",
+                  "library": "lucide",
                   "fill": "#94A3B8"
                 },
                 {
@@ -1087,11 +1091,9 @@
                   "height": 160,
                   "fill": "#F8FAFC",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E2E8F0"
-                  },
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 10,
                   "padding": 18,
@@ -1099,19 +1101,19 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "u46O0w",
                       "width": 32,
                       "height": 32,
-                      "iconFontName": "layout-grid",
-                      "iconFontFamily": "lucide",
+                      "icon": "layout-grid",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
                       "type": "text",
                       "id": "ZgNPu",
                       "fill": "#0F172A",
-                      "content": "Render",
+                      "content": "Рендеринг",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "700"
@@ -1129,13 +1131,13 @@
                   ]
                 },
                 {
-                  "type": "icon_font",
+                  "type": "icon",
                   "id": "hy3a9",
                   "name": "arr2",
                   "width": 22,
                   "height": 22,
-                  "iconFontName": "chevron-right",
-                  "iconFontFamily": "lucide",
+                  "icon": "chevron-right",
+                  "library": "lucide",
                   "fill": "#94A3B8"
                 },
                 {
@@ -1146,11 +1148,9 @@
                   "height": 160,
                   "fill": "#F8FAFC",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E2E8F0"
-                  },
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 10,
                   "padding": 18,
@@ -1158,12 +1158,12 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "E3X9G9",
                       "width": 32,
                       "height": 32,
-                      "iconFontName": "scan-line",
-                      "iconFontFamily": "lucide",
+                      "icon": "scan-line",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -1188,13 +1188,13 @@
                   ]
                 },
                 {
-                  "type": "icon_font",
+                  "type": "icon",
                   "id": "Y2Npr9",
                   "name": "arr3",
                   "width": 22,
                   "height": 22,
-                  "iconFontName": "chevron-right",
-                  "iconFontFamily": "lucide",
+                  "icon": "chevron-right",
+                  "library": "lucide",
                   "fill": "#94A3B8"
                 },
                 {
@@ -1212,12 +1212,12 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "RkX05",
                       "width": 34,
                       "height": 34,
-                      "iconFontName": "brain-circuit",
-                      "iconFontFamily": "lucide",
+                      "icon": "brain-circuit",
+                      "library": "lucide",
                       "fill": "#FFFFFF"
                     },
                     {
@@ -1242,13 +1242,13 @@
                   ]
                 },
                 {
-                  "type": "icon_font",
+                  "type": "icon",
                   "id": "AQjv7",
                   "name": "arr4",
                   "width": 22,
                   "height": 22,
-                  "iconFontName": "chevron-right",
-                  "iconFontFamily": "lucide",
+                  "icon": "chevron-right",
+                  "library": "lucide",
                   "fill": "#94A3B8"
                 },
                 {
@@ -1259,11 +1259,9 @@
                   "height": 160,
                   "fill": "#F8FAFC",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E2E8F0"
-                  },
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 10,
                   "padding": 18,
@@ -1271,19 +1269,19 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "GTI6m",
                       "width": 32,
                       "height": 32,
-                      "iconFontName": "audio-lines",
-                      "iconFontFamily": "lucide",
+                      "icon": "audio-lines",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
                       "type": "text",
                       "id": "aN7AA",
                       "fill": "#0F172A",
-                      "content": "TTS streaming",
+                      "content": "Потоковий TTS",
                       "fontFamily": "Inter",
                       "fontSize": 14,
                       "fontWeight": "700"
@@ -1301,13 +1299,13 @@
                   ]
                 },
                 {
-                  "type": "icon_font",
+                  "type": "icon",
                   "id": "RBbIT",
                   "name": "arr5",
                   "width": 22,
                   "height": 22,
-                  "iconFontName": "chevron-right",
-                  "iconFontFamily": "lucide",
+                  "icon": "chevron-right",
+                  "library": "lucide",
                   "fill": "#94A3B8"
                 },
                 {
@@ -1318,11 +1316,9 @@
                   "height": 160,
                   "fill": "#F8FAFC",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E2E8F0"
-                  },
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 10,
                   "padding": 18,
@@ -1330,12 +1326,12 @@
                   "alignItems": "center",
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "CzAQX",
                       "width": 32,
                       "height": 32,
-                      "iconFontName": "headphones",
-                      "iconFontFamily": "lucide",
+                      "icon": "headphones",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -1351,7 +1347,7 @@
                       "type": "text",
                       "id": "GKbN3",
                       "fill": "#64748B",
-                      "content": "player + кеш",
+                      "content": "плеєр + кеш",
                       "textAlign": "center",
                       "fontFamily": "Inter",
                       "fontSize": 11,
@@ -1383,7 +1379,7 @@
                       "type": "text",
                       "id": "vrzdK",
                       "fill": "#0F172A",
-                      "content": "Page-by-page streaming",
+                      "content": "Посторінкова потокова обробка",
                       "fontFamily": "Inter",
                       "fontSize": 13,
                       "fontWeight": "700"
@@ -1394,7 +1390,7 @@
                       "fill": "#475569",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Перший блок звучить, поки решта обробляється у фоні. Concurrency 2, retry, cancellation.",
+                      "content": "Перший блок звучить, поки решта обробляється у фоні. Паралельність 2, повторні спроби, скасування.",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 12,
@@ -1417,7 +1413,7 @@
                       "type": "text",
                       "id": "N6ivH",
                       "fill": "#1E3A8A",
-                      "content": "VLM emit_blocks tool",
+                      "content": "Інструмент VLM emit_blocks",
                       "fontFamily": "Inter",
                       "fontSize": 13,
                       "fontWeight": "700"
@@ -1428,7 +1424,7 @@
                       "fill": "#1E3A8A",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Структурований вихід з типізацією блоків (heading, paragraph, toc, service, figure…) і прив'язкою до OCR ids.",
+                      "content": "Структурований вихід з типами блоків (heading, paragraph, toc, service, figure…) і прив'язкою до OCR-ідентифікаторів.",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 12,
@@ -1451,7 +1447,7 @@
                       "type": "text",
                       "id": "Fn6X0",
                       "fill": "#0F172A",
-                      "content": "Offline / cache",
+                      "content": "Офлайн / кеш",
                       "fontFamily": "Inter",
                       "fontSize": 13,
                       "fontWeight": "700"
@@ -1462,7 +1458,7 @@
                       "fill": "#475569",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Усі аудіо-фрагменти кешуються локально; підтримка повного preload для офлайн-режиму.",
+                      "content": "Усі аудіофрагменти кешуються локально; підтримка повного попереднього завантаження для офлайн-режиму.",
                       "lineHeight": 1.5,
                       "fontFamily": "Inter",
                       "fontSize": 12,
@@ -1498,16 +1494,19 @@
         {
           "type": "frame",
           "id": "F2pFE1",
+          "x": 0,
+          "y": 6,
           "name": "header6",
-          "width": "fill_container",
+          "enabled": false,
+          "width": "fill_container(1280)",
           "fill": "#FFFFFF",
           "layout": "vertical",
-          "gap": 6,
+          "gap": 2,
           "padding": [
-            44,
-            80,
-            28,
-            80
+            14,
+            42,
+            10,
+            42
           ],
           "children": [
             {
@@ -1516,7 +1515,7 @@
               "fill": "#1E40AF",
               "content": "06 · СЦЕНАРІЇ ВИКОРИСТАННЯ",
               "fontFamily": "Inter",
-              "fontSize": 13,
+              "fontSize": 9,
               "fontWeight": "700",
               "letterSpacing": 1.6
             },
@@ -1526,7 +1525,7 @@
               "fill": "#0F172A",
               "content": "Основні взаємодії користувача з системою",
               "fontFamily": "Inter",
-              "fontSize": 30,
+              "fontSize": 18,
               "fontWeight": "700"
             }
           ]
@@ -1534,9 +1533,12 @@
         {
           "type": "rectangle",
           "id": "jdBXJ",
+          "x": 0,
+          "y": 65,
           "name": "div6",
+          "enabled": false,
           "fill": "#E2E8F0",
-          "width": "fill_container",
+          "width": "fill_container(1280)",
           "height": 1
         },
         {
@@ -1545,23 +1547,48 @@
           "name": "body6",
           "width": "fill_container",
           "height": "fill_container",
-          "gap": 36,
+          "gap": 24,
           "padding": [
-            34,
-            60,
-            42,
-            60
+            12,
+            26,
+            18,
+            34
           ],
+          "alignItems": "center",
           "children": [
             {
               "type": "frame",
               "id": "ypzxz",
               "name": "ucList",
-              "width": 480,
+              "width": 370,
               "height": "fill_container",
               "layout": "vertical",
               "gap": 10,
               "children": [
+                {
+                  "type": "text",
+                  "id": "pxx1z",
+                  "name": "Side section label",
+                  "fill": "#1E40AF",
+                  "content": "06 · СЦЕНАРІЇ ВИКОРИСТАННЯ",
+                  "fontFamily": "Inter",
+                  "fontSize": 11,
+                  "fontWeight": "700",
+                  "letterSpacing": 1.6
+                },
+                {
+                  "type": "text",
+                  "id": "CfQHg",
+                  "name": "Side title",
+                  "fill": "#0F172A",
+                  "textGrowth": "fixed-width",
+                  "width": "fill_container",
+                  "content": "Основні взаємодії користувача з системою",
+                  "lineHeight": 1.15,
+                  "fontFamily": "Inter",
+                  "fontSize": 24,
+                  "fontWeight": "700"
+                },
                 {
                   "type": "text",
                   "id": "pG1MP",
@@ -1641,12 +1668,12 @@
                   "gap": 10,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "XFf2H",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "upload",
-                      "iconFontFamily": "lucide",
+                      "icon": "upload",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -1671,12 +1698,12 @@
                   "gap": 10,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "Qy2sa",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "play",
-                      "iconFontFamily": "lucide",
+                      "icon": "play",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -1701,12 +1728,12 @@
                   "gap": 10,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "cpOkg",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "list-tree",
-                      "iconFontFamily": "lucide",
+                      "icon": "list-tree",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -1715,7 +1742,7 @@
                       "fill": "#0F172A",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Перейти за outline до розділу",
+                      "content": "Перейти за змістом до розділу",
                       "lineHeight": 1.45,
                       "fontFamily": "Inter",
                       "fontSize": 14,
@@ -1731,12 +1758,12 @@
                   "gap": 10,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "yZMPq",
                       "width": 18,
                       "height": 18,
-                      "iconFontName": "settings-2",
-                      "iconFontFamily": "lucide",
+                      "icon": "settings-2",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -1774,346 +1801,10 @@
     },
     {
       "type": "frame",
-      "id": "gQ9Oh",
+      "id": "M6wyJ2",
       "x": 8280,
       "y": 0,
-      "name": "Slide 07 — UI Library",
-      "width": 1280,
-      "height": 720,
-      "fill": "#FFFFFF",
-      "layout": "vertical",
-      "children": [
-        {
-          "type": "rectangle",
-          "id": "a2chee",
-          "name": "topBar7",
-          "fill": "#1E40AF",
-          "width": "fill_container",
-          "height": 6
-        },
-        {
-          "type": "frame",
-          "id": "fot4v",
-          "name": "header7",
-          "width": "fill_container",
-          "fill": "#FFFFFF",
-          "layout": "vertical",
-          "gap": 6,
-          "padding": [
-            44,
-            80,
-            28,
-            80
-          ],
-          "children": [
-            {
-              "type": "text",
-              "id": "X33jIk",
-              "fill": "#1E40AF",
-              "content": "07 · ЗАВАНТАЖЕННЯ ТА БІБЛІОТЕКА",
-              "fontFamily": "Inter",
-              "fontSize": 13,
-              "fontWeight": "700",
-              "letterSpacing": 1.6
-            },
-            {
-              "type": "text",
-              "id": "RypfP",
-              "fill": "#0F172A",
-              "content": "Імпорт документа і управління локальною бібліотекою",
-              "fontFamily": "Inter",
-              "fontSize": 30,
-              "fontWeight": "700"
-            }
-          ]
-        },
-        {
-          "type": "rectangle",
-          "id": "FuuDr",
-          "name": "div7",
-          "fill": "#E2E8F0",
-          "width": "fill_container",
-          "height": 1
-        },
-        {
-          "type": "frame",
-          "id": "OiE6L",
-          "name": "body7",
-          "width": "fill_container",
-          "height": "fill_container",
-          "gap": 40,
-          "padding": [
-            34,
-            80,
-            40,
-            80
-          ],
-          "children": [
-            {
-              "type": "frame",
-              "id": "cU3KC",
-              "name": "phones7",
-              "gap": 24,
-              "children": [
-                {
-                  "type": "frame",
-                  "id": "Q8GHS",
-                  "name": "ph7a",
-                  "width": 240,
-                  "layout": "vertical",
-                  "gap": 10,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "Ye2rC",
-                      "width": 240,
-                      "height": 500,
-                      "fill": {
-                        "type": "image",
-                        "enabled": true,
-                        "url": "assets/screen-upload.jpg",
-                        "mode": "fit"
-                      },
-                      "cornerRadius": 14,
-                      "stroke": {
-                        "align": "inside",
-                        "thickness": 1,
-                        "fill": "#E2E8F0"
-                      }
-                    },
-                    {
-                      "type": "text",
-                      "id": "s16uc",
-                      "fill": "#0F172A",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Завантаження",
-                      "textAlign": "center",
-                      "fontFamily": "Inter",
-                      "fontSize": 13,
-                      "fontWeight": "600"
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "lR9fW",
-                  "name": "ph7b",
-                  "width": 240,
-                  "layout": "vertical",
-                  "gap": 10,
-                  "children": [
-                    {
-                      "type": "frame",
-                      "id": "ugiGd",
-                      "width": 240,
-                      "height": 500,
-                      "fill": {
-                        "type": "image",
-                        "enabled": true,
-                        "url": "assets/screen-library.jpg",
-                        "mode": "fit"
-                      },
-                      "cornerRadius": 14,
-                      "stroke": {
-                        "align": "inside",
-                        "thickness": 1,
-                        "fill": "#E2E8F0"
-                      }
-                    },
-                    {
-                      "type": "text",
-                      "id": "dad1P",
-                      "fill": "#0F172A",
-                      "textGrowth": "fixed-width",
-                      "width": "fill_container",
-                      "content": "Бібліотека книг",
-                      "textAlign": "center",
-                      "fontFamily": "Inter",
-                      "fontSize": 13,
-                      "fontWeight": "600"
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              "type": "frame",
-              "id": "GF43e",
-              "name": "feats7",
-              "width": "fill_container",
-              "layout": "vertical",
-              "gap": 18,
-              "children": [
-                {
-                  "type": "text",
-                  "id": "d9xpjO",
-                  "fill": "#1E40AF",
-                  "content": "ФУНКЦІЇ",
-                  "fontFamily": "Inter",
-                  "fontSize": 11,
-                  "fontWeight": "800",
-                  "letterSpacing": 2
-                },
-                {
-                  "type": "frame",
-                  "id": "A2pYn",
-                  "name": "f7r1",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "nQS3A",
-                      "width": 20,
-                      "height": 20,
-                      "iconFontName": "file-up",
-                      "iconFontFamily": "lucide",
-                      "fill": "#1E40AF"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "qIdC7",
-                      "name": "f7r1t",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "u01zMk",
-                          "fill": "#0F172A",
-                          "content": "Імпорт з файлу або URL",
-                          "fontFamily": "Inter",
-                          "fontSize": 15,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "R5Dnw",
-                          "fill": "#475569",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "PDF, EPUB, DOCX, HTML, TXT, зображення",
-                          "lineHeight": 1.45,
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "UKR3N",
-                  "name": "f7r2",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "sSXRt",
-                      "width": 20,
-                      "height": 20,
-                      "iconFontName": "library",
-                      "iconFontFamily": "lucide",
-                      "fill": "#1E40AF"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "EWAcO",
-                      "name": "f7r2t",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "xFERC",
-                          "fill": "#0F172A",
-                          "content": "Локальна бібліотека з прогресом",
-                          "fontFamily": "Inter",
-                          "fontSize": 15,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "F97tt4",
-                          "fill": "#475569",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Продовження з місця зупинки, експорт/імпорт даних бібліотеки",
-                          "lineHeight": 1.45,
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "type": "frame",
-                  "id": "hhzTB",
-                  "name": "f7r3",
-                  "width": "fill_container",
-                  "gap": 12,
-                  "children": [
-                    {
-                      "type": "icon_font",
-                      "id": "fSLm6",
-                      "width": 20,
-                      "height": 20,
-                      "iconFontName": "wifi-off",
-                      "iconFontFamily": "lucide",
-                      "fill": "#1E40AF"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "zgR0r",
-                      "name": "f7r3t",
-                      "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "URMYX",
-                          "fill": "#0F172A",
-                          "content": "Офлайн-режим",
-                          "fontFamily": "Inter",
-                          "fontSize": 15,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "c452EJ",
-                          "fill": "#475569",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Повний preload аудіо книги для прослуховування без мережі",
-                          "lineHeight": 1.45,
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "frame",
-      "id": "M6wyJ2",
-      "x": 9660,
-      "y": 0,
-      "name": "Slide 08 — UI Player",
+      "name": "Slide 07 — App Overview",
       "width": 1280,
       "height": 720,
       "fill": "#FFFFFF",
@@ -2146,7 +1837,7 @@
               "type": "text",
               "id": "qnAoL",
               "fill": "#1E40AF",
-              "content": "08 · ПЛЕЄР АУДІОКНИГИ",
+              "content": "07 · МОЖЛИВОСТІ ЗАСТОСУНКУ",
               "fontFamily": "Inter",
               "fontSize": 13,
               "fontWeight": "700",
@@ -2158,10 +1849,10 @@
               "fill": "#0F172A",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "Два режими перегляду + outline + skip-to-main + sleep-timer",
+              "content": "Від імпорту документа до готової аудіокниги",
               "lineHeight": 1.25,
               "fontFamily": "Inter",
-              "fontSize": 30,
+              "fontSize": 29,
               "fontWeight": "700"
             }
           ]
@@ -2206,19 +1897,17 @@
                       "type": "frame",
                       "id": "UsrXF",
                       "width": 240,
-                      "height": 500,
+                      "height": 480,
                       "fill": {
                         "type": "image",
                         "enabled": true,
-                        "url": "assets/screen-player-reflowed.jpg",
+                        "url": "assets/manual-player-reflowed-new.png",
                         "mode": "fit"
                       },
                       "cornerRadius": 14,
-                      "stroke": {
-                        "align": "inside",
-                        "thickness": 1,
-                        "fill": "#E2E8F0"
-                      }
+                      "stroke": "#E2E8F0",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner"
                     },
                     {
                       "type": "text",
@@ -2226,7 +1915,7 @@
                       "fill": "#0F172A",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Reflowed view",
+                      "content": "Переформатований вигляд",
                       "textAlign": "center",
                       "fontFamily": "Inter",
                       "fontSize": 13,
@@ -2246,19 +1935,17 @@
                       "type": "frame",
                       "id": "IVhpu",
                       "width": 240,
-                      "height": 500,
+                      "height": 480,
                       "fill": {
                         "type": "image",
                         "enabled": true,
-                        "url": "assets/screen-player-original.jpg",
+                        "url": "assets/manual-player-original-new.png",
                         "mode": "fit"
                       },
                       "cornerRadius": 14,
-                      "stroke": {
-                        "align": "inside",
-                        "thickness": 1,
-                        "fill": "#E2E8F0"
-                      }
+                      "stroke": "#E2E8F0",
+                      "strokeWidth": 1,
+                      "strokeAlignment": "inner"
                     },
                     {
                       "type": "text",
@@ -2266,7 +1953,7 @@
                       "fill": "#0F172A",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Original view",
+                      "content": "Оригінальний вигляд",
                       "textAlign": "center",
                       "fontFamily": "Inter",
                       "fontSize": 13,
@@ -2288,7 +1975,7 @@
                   "type": "text",
                   "id": "qpHC5",
                   "fill": "#1E40AF",
-                  "content": "ОСОБЛИВОСТІ",
+                  "content": "КЛЮЧОВІ МОЖЛИВОСТІ",
                   "fontFamily": "Inter",
                   "fontSize": 11,
                   "fontWeight": "800",
@@ -2302,12 +1989,12 @@
                   "gap": 12,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "OgETf",
                       "width": 20,
                       "height": 20,
-                      "iconFontName": "book-open-text",
-                      "iconFontFamily": "lucide",
+                      "icon": "file-up",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -2322,7 +2009,7 @@
                           "type": "text",
                           "id": "D6bsi",
                           "fill": "#0F172A",
-                          "content": "Reflowed view",
+                          "content": "Імпорт і бібліотека",
                           "fontFamily": "Inter",
                           "fontSize": 15,
                           "fontWeight": "700"
@@ -2333,7 +2020,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Чистий текст з зображеннями та підписами, оптимізований для слідкування",
+                          "content": "Завантаження з файлу або URL, локальна бібліотека, прогрес прослуховування",
                           "lineHeight": 1.45,
                           "fontFamily": "Inter",
                           "fontSize": 13,
@@ -2351,12 +2038,12 @@
                   "gap": 12,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "wcAqX",
                       "width": 20,
                       "height": 20,
-                      "iconFontName": "layout-template",
-                      "iconFontFamily": "lucide",
+                      "icon": "play",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -2371,7 +2058,7 @@
                           "type": "text",
                           "id": "chAQG",
                           "fill": "#0F172A",
-                          "content": "Original view із підсвіткою",
+                          "content": "Плеєр аудіокниги",
                           "fontFamily": "Inter",
                           "fontSize": 15,
                           "fontWeight": "700"
@@ -2382,7 +2069,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Оригінальна сторінка з polygon-overlay поточного блоку, що зараз озвучується",
+                          "content": "Переформатований та оригінальний вигляд, фонове відтворення, контроль позиції",
                           "lineHeight": 1.45,
                           "fontFamily": "Inter",
                           "fontSize": 13,
@@ -2400,12 +2087,12 @@
                   "gap": 12,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "CNIq1",
                       "width": 20,
                       "height": 20,
-                      "iconFontName": "list-tree",
-                      "iconFontFamily": "lucide",
+                      "icon": "list-tree",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -2420,7 +2107,7 @@
                           "type": "text",
                           "id": "G4ceJ",
                           "fill": "#0F172A",
-                          "content": "Outline з embedded PDF",
+                          "content": "Навігація і керування",
                           "fontFamily": "Inter",
                           "fontSize": 15,
                           "fontWeight": "700"
@@ -2431,7 +2118,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Миттєвий перехід до розділу через зашитий PDF-зміст (pdf.js getOutline)",
+                          "content": "Зміст з PDF, перехід до основного контенту, таймер сну",
                           "lineHeight": 1.45,
                           "fontFamily": "Inter",
                           "fontSize": 13,
@@ -2449,12 +2136,12 @@
                   "gap": 12,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "Ps85c",
                       "width": 20,
                       "height": 20,
-                      "iconFontName": "moon",
-                      "iconFontFamily": "lucide",
+                      "icon": "settings-2",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     },
                     {
@@ -2469,7 +2156,7 @@
                           "type": "text",
                           "id": "n4phU",
                           "fill": "#0F172A",
-                          "content": "Sleep timer + фон",
+                          "content": "Налаштування та офлайн",
                           "fontFamily": "Inter",
                           "fontSize": 15,
                           "fontWeight": "700"
@@ -2480,7 +2167,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Автозупинка та відтворення з вимкненим екраном",
+                          "content": "Голос ElevenLabs, швидкість, пропуск службових блоків, кеш і offline-завантаження",
                           "lineHeight": 1.45,
                           "fontFamily": "Inter",
                           "fontSize": 13,
@@ -2498,10 +2185,11 @@
     },
     {
       "type": "frame",
-      "id": "TFXW9",
-      "x": 10798,
-      "y": 35,
-      "name": "Slide 09 — UI Settings",
+      "id": "WjELt",
+      "x": 9660,
+      "y": 0,
+      "name": "Slide 08 — App Comparison",
+      "clip": true,
       "width": 1280,
       "height": 720,
       "fill": "#FFFFFF",
@@ -2509,270 +2197,675 @@
       "children": [
         {
           "type": "rectangle",
-          "id": "A7wzvX",
-          "name": "topBar9",
+          "id": "T9Ksi",
+          "name": "topBar8c",
           "fill": "#1E40AF",
           "width": "fill_container",
           "height": 6
         },
         {
           "type": "frame",
-          "id": "pdU0v",
-          "name": "header9",
+          "id": "w3iYA",
+          "name": "header8c",
           "width": "fill_container",
           "fill": "#FFFFFF",
           "layout": "vertical",
-          "gap": 6,
           "padding": [
-            44,
-            80,
-            28,
-            80
+            34,
+            70,
+            16,
+            70
           ],
           "children": [
             {
               "type": "text",
-              "id": "o9NlH",
+              "id": "XTntf",
+              "name": "Comparison label",
               "fill": "#1E40AF",
-              "content": "09 · НАЛАШТУВАННЯ ЧИТАННЯ",
+              "content": "08 · ПОРІВНЯННЯ З ІНШИМИ ЗАСТОСУНКАМИ: ПРИКЛАД 1",
               "fontFamily": "Inter",
-              "fontSize": 13,
+              "fontSize": 12,
               "fontWeight": "700",
               "letterSpacing": 1.6
-            },
-            {
-              "type": "text",
-              "id": "dtMUc",
-              "fill": "#0F172A",
-              "content": "User override як safety net для VLM-рішень",
-              "fontFamily": "Inter",
-              "fontSize": 30,
-              "fontWeight": "700"
             }
           ]
         },
         {
           "type": "rectangle",
-          "id": "Uyv0e",
-          "name": "div9",
+          "id": "o9TIZ8",
+          "name": "divider8c",
           "fill": "#E2E8F0",
           "width": "fill_container",
           "height": 1
         },
         {
           "type": "frame",
-          "id": "p94zo",
-          "name": "body9",
+          "id": "BdQhA",
+          "name": "comparisonBody",
           "width": "fill_container",
           "height": "fill_container",
-          "gap": 48,
+          "layout": "vertical",
+          "gap": 8,
           "padding": [
-            34,
-            80,
-            40,
-            80
+            12,
+            36,
+            26,
+            36
           ],
           "children": [
             {
               "type": "frame",
-              "id": "sYWKl",
-              "name": "ph9",
-              "width": 240,
-              "layout": "vertical",
-              "gap": 10,
+              "id": "FAtgf",
+              "name": "comparisonLabels",
+              "width": "fill_container",
+              "gap": 16,
               "children": [
                 {
                   "type": "frame",
-                  "id": "qs6p1",
-                  "width": 240,
-                  "height": 500,
-                  "fill": {
-                    "type": "image",
-                    "enabled": true,
-                    "url": "assets/screen-settings.jpg",
-                    "mode": "fit"
-                  },
-                  "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 1,
-                    "fill": "#E2E8F0"
-                  }
+                  "id": "L4pry",
+                  "name": "Column label",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "S7NEq",
+                      "name": "Column label text",
+                      "fill": "#334155",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Оригінальна сторінка",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
+                    }
+                  ]
                 },
                 {
-                  "type": "text",
-                  "id": "iDMUa",
-                  "fill": "#0F172A",
-                  "textGrowth": "fixed-width",
+                  "type": "frame",
+                  "id": "gikUF",
+                  "name": "Column label",
                   "width": "fill_container",
-                  "content": "Налаштування книги",
-                  "textAlign": "center",
-                  "fontFamily": "Inter",
-                  "fontSize": 13,
-                  "fontWeight": "600"
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "g2Saoh",
+                      "name": "Column label text",
+                      "fill": "#334155",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "ElevenReader",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "qalLn",
+                  "name": "Column label",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "MYrTj",
+                      "name": "Column label text",
+                      "fill": "#334155",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Speechify",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "WL8Uc",
+                  "name": "Column label",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "kgHL9",
+                      "name": "Column label text",
+                      "fill": "#1E40AF",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "ReadMe",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
+                    }
+                  ]
                 }
               ]
             },
             {
               "type": "frame",
-              "id": "v6IpdI",
-              "name": "feats9",
+              "id": "laxrZ",
+              "name": "Example 1",
               "width": "fill_container",
-              "layout": "vertical",
-              "gap": 18,
+              "height": "fill_container",
+              "alignItems": "center",
               "children": [
                 {
-                  "type": "text",
-                  "id": "yuzxw",
-                  "fill": "#1E40AF",
-                  "content": "КЕРУВАННЯ",
-                  "fontFamily": "Inter",
-                  "fontSize": 11,
-                  "fontWeight": "800",
-                  "letterSpacing": 2
-                },
-                {
                   "type": "frame",
-                  "id": "eyeDD",
-                  "name": "f9r1",
+                  "id": "J83FEz",
+                  "name": "Example grid 1",
                   "width": "fill_container",
+                  "height": "fill_container",
                   "gap": 12,
                   "children": [
                     {
-                      "type": "icon_font",
-                      "id": "CdJuq",
-                      "width": 20,
-                      "height": 20,
-                      "iconFontName": "mic",
-                      "iconFontFamily": "lucide",
-                      "fill": "#1E40AF"
+                      "type": "frame",
+                      "id": "XqMNl",
+                      "name": "Original 1",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "U1xay",
+                          "name": "Original 1 image",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/page-1.jpg",
+                            "mode": "fit"
+                          }
+                        }
+                      ]
                     },
                     {
                       "type": "frame",
-                      "id": "BDDAf",
-                      "name": "f9r1t",
+                      "id": "ELaBq",
+                      "name": "ElevenReader 1",
                       "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 2,
+                      "justifyContent": "center",
+                      "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "g07oN",
-                          "fill": "#0F172A",
-                          "content": "Вибір голосу ElevenLabs",
-                          "fontFamily": "Inter",
-                          "fontSize": 15,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "Fj7Pq",
-                          "fill": "#475569",
-                          "textGrowth": "fixed-width",
+                          "type": "frame",
+                          "id": "cBgTO",
+                          "name": "ElevenReader 1 image",
                           "width": "fill_container",
-                          "content": "Пошук у бібліотеці голосів; перемикання провайдера TTS (cloud / local)",
-                          "lineHeight": 1.45,
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/elevenreader-1.jpg",
+                            "mode": "fit"
+                          }
                         }
                       ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "U9tbsA",
+                      "name": "Speechify 1",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "fU6mX",
+                          "name": "Speechify 1 image",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/speechify-1.jpg",
+                            "mode": "fit"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "EyYMg",
+                      "name": "ReadMe 1",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "NI8ky",
+                          "name": "ReadMe 1 image",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/readme-1.jpg",
+                            "mode": "fit"
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "UXiy4",
+      "x": 11040,
+      "y": 0,
+      "name": "Slide 09 — App Comparison 2",
+      "clip": true,
+      "width": 1280,
+      "height": 720,
+      "fill": "#FFFFFF",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "rectangle",
+          "id": "CXFo9",
+          "name": "topBar9c",
+          "fill": "#1E40AF",
+          "width": "fill_container",
+          "height": 6
+        },
+        {
+          "type": "frame",
+          "id": "lVJZf",
+          "name": "header9c",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "layout": "vertical",
+          "padding": [
+            34,
+            70,
+            16,
+            70
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "mDLhn",
+              "name": "Comparison label 2",
+              "fill": "#1E40AF",
+              "content": "09 · ПОРІВНЯННЯ З ІНШИМИ ЗАСТОСУНКАМИ: ПРИКЛАД 2",
+              "fontFamily": "Inter",
+              "fontSize": 12,
+              "fontWeight": "700",
+              "letterSpacing": 1.6
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "IjsT9",
+          "name": "divider9c",
+          "fill": "#E2E8F0",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "RX0Rt",
+          "name": "comparisonBody2",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 8,
+          "padding": [
+            12,
+            36,
+            26,
+            36
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "baHnw",
+              "name": "comparisonLabels2",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "VSSwu",
+                  "name": "Column label 2",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "nKsb4",
+                      "name": "Column label text 2",
+                      "fill": "#334155",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Оригінальна сторінка",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
                     }
                   ]
                 },
                 {
                   "type": "frame",
-                  "id": "rzXdf",
-                  "name": "f9r2",
+                  "id": "LQ73O",
+                  "name": "Column label 2",
                   "width": "fill_container",
-                  "gap": 12,
+                  "padding": [
+                    0,
+                    4
+                  ],
                   "children": [
                     {
-                      "type": "icon_font",
-                      "id": "bxYTA",
-                      "width": 20,
-                      "height": 20,
-                      "iconFontName": "gauge",
-                      "iconFontFamily": "lucide",
-                      "fill": "#1E40AF"
-                    },
-                    {
-                      "type": "frame",
-                      "id": "MoAA5",
-                      "name": "f9r2t",
+                      "type": "text",
+                      "id": "pMTAz",
+                      "name": "Column label text 2",
+                      "fill": "#334155",
+                      "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "layout": "vertical",
-                      "gap": 2,
-                      "children": [
-                        {
-                          "type": "text",
-                          "id": "WetkX",
-                          "fill": "#0F172A",
-                          "content": "Швидкість відтворення",
-                          "fontFamily": "Inter",
-                          "fontSize": 15,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "kuOn2",
-                          "fill": "#475569",
-                          "textGrowth": "fixed-width",
-                          "width": "fill_container",
-                          "content": "Регулюється плавно; персональне значення на рівні книги поверх глобального",
-                          "lineHeight": 1.45,
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
-                        }
-                      ]
+                      "content": "ElevenReader",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
                     }
                   ]
                 },
                 {
                   "type": "frame",
-                  "id": "fSLbF",
-                  "name": "f9r3",
+                  "id": "wuj45",
+                  "name": "Column label 2",
                   "width": "fill_container",
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "eCq7N",
+                      "name": "Column label text 2",
+                      "fill": "#334155",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Speechify",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "w1j8VU",
+                  "name": "Column label 2",
+                  "width": "fill_container",
+                  "padding": [
+                    0,
+                    4
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "ikfMf",
+                      "name": "Column label text 2",
+                      "fill": "#1E40AF",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "ReadMe",
+                      "textAlign": "center",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "h9mQpL",
+              "name": "Example 2 only",
+              "width": "fill_container",
+              "height": "fill_container",
+              "alignItems": "center",
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "c43QRJ",
+                  "name": "Example grid 2 only",
+                  "width": "fill_container",
+                  "height": "fill_container",
                   "gap": 12,
                   "children": [
                     {
-                      "type": "icon_font",
-                      "id": "LcEZk",
-                      "width": 20,
-                      "height": 20,
-                      "iconFontName": "list-filter",
-                      "iconFontFamily": "lucide",
-                      "fill": "#1E40AF"
+                      "type": "frame",
+                      "id": "O19il",
+                      "name": "Original 2 only",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "drxcd",
+                          "name": "Original 2 only image",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/page-2.jpg",
+                            "mode": "fit"
+                          }
+                        }
+                      ]
                     },
                     {
                       "type": "frame",
-                      "id": "owTBT",
-                      "name": "f9r3t",
+                      "id": "bOBPD",
+                      "name": "ElevenReader 2 only",
                       "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
                       "layout": "vertical",
-                      "gap": 2,
+                      "justifyContent": "center",
+                      "alignItems": "center",
                       "children": [
                         {
-                          "type": "text",
-                          "id": "g2wTsS",
-                          "fill": "#0F172A",
-                          "content": "Три режими пропуску блоків",
-                          "fontFamily": "Inter",
-                          "fontSize": 15,
-                          "fontWeight": "700"
-                        },
-                        {
-                          "type": "text",
-                          "id": "uoJJJ",
-                          "fill": "#475569",
-                          "textGrowth": "fixed-width",
+                          "type": "frame",
+                          "id": "PzDtJ",
+                          "name": "ElevenReader 2 only image",
                           "width": "fill_container",
-                          "content": "Main-only · service-only · none. Безпосередньо керує системним промптом VLM.",
-                          "lineHeight": 1.45,
-                          "fontFamily": "Inter",
-                          "fontSize": 13,
-                          "fontWeight": "normal"
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/elevenreader-2.jpg",
+                            "mode": "fit"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "YVqxJ",
+                      "name": "Speechify 2 only",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "TpZGh",
+                          "name": "Speechify 2 only image",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/speechify-2.jpg",
+                            "mode": "fit"
+                          }
+                        }
+                      ]
+                    },
+                    {
+                      "type": "frame",
+                      "id": "VRPmp",
+                      "name": "ReadMe 2 only",
+                      "width": "fill_container",
+                      "height": "fill_container",
+                      "fill": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "stroke": {
+                        "type": "color",
+                        "color": "#FFFFFF",
+                        "enabled": false
+                      },
+                      "strokeAlignment": "inner",
+                      "layout": "vertical",
+                      "justifyContent": "center",
+                      "alignItems": "center",
+                      "children": [
+                        {
+                          "type": "frame",
+                          "id": "BzvoL",
+                          "name": "ReadMe 2 only image",
+                          "width": "fill_container",
+                          "height": "fill_container",
+                          "fill": {
+                            "type": "image",
+                            "enabled": true,
+                            "url": "assets/comparison/readme-2.jpg",
+                            "mode": "fit"
+                          }
                         }
                       ]
                     }
@@ -2834,7 +2927,7 @@
               "fill": "#0F172A",
               "textGrowth": "fixed-width",
               "width": "fill_container",
-              "content": "Дистиляція VLM у спеціалізовану модель document-to-TTS",
+              "content": "Дистиляція VLM у спеціалізовану модель",
               "lineHeight": 1.25,
               "fontFamily": "Inter",
               "fontSize": 30,
@@ -2893,7 +2986,7 @@
                       "type": "text",
                       "id": "BG6w2",
                       "fill": "#BFDBFE",
-                      "content": "TEACHER",
+                      "content": "ВЧИТЕЛЬ",
                       "fontFamily": "Inter",
                       "fontSize": 11,
                       "fontWeight": "800",
@@ -2905,7 +2998,7 @@
                       "fill": "#FFFFFF",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Frontier VLM (Claude Sonnet 4.6 vision)",
+                      "content": "Велика VLM (Claude Sonnet 4.6 vision)",
                       "lineHeight": 1.3,
                       "fontFamily": "Inter",
                       "fontSize": 18,
@@ -2917,7 +3010,7 @@
                       "fill": "#DBEAFE",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Висока якість · дорогий інференс · cloud-only",
+                      "content": "Висока якість · дорогий інференс · лише хмара",
                       "lineHeight": 1.4,
                       "fontFamily": "Inter",
                       "fontSize": 12,
@@ -2937,19 +3030,19 @@
                       "type": "text",
                       "id": "y7pwEi",
                       "fill": "#64748B",
-                      "content": "synthetic teacher-labelled dataset",
+                      "content": "синтетичний набір даних, розмічений вчителем",
                       "fontFamily": "Inter",
                       "fontSize": 11,
                       "fontWeight": "600",
                       "letterSpacing": 0.5
                     },
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "pj7E1",
                       "width": 24,
                       "height": 24,
-                      "iconFontName": "arrow-down",
-                      "iconFontFamily": "lucide",
+                      "icon": "arrow-down",
+                      "library": "lucide",
                       "fill": "#1E40AF"
                     }
                   ]
@@ -2961,11 +3054,9 @@
                   "width": "fill_container",
                   "fill": "#EFF6FF",
                   "cornerRadius": 14,
-                  "stroke": {
-                    "align": "inside",
-                    "thickness": 2,
-                    "fill": "#1E40AF"
-                  },
+                  "stroke": "#1E40AF",
+                  "strokeWidth": 2,
+                  "strokeAlignment": "inner",
                   "layout": "vertical",
                   "gap": 6,
                   "padding": [
@@ -2979,7 +3070,7 @@
                       "type": "text",
                       "id": "VJy8u",
                       "fill": "#1E40AF",
-                      "content": "STUDENT",
+                      "content": "СТУДЕНТ",
                       "fontFamily": "Inter",
                       "fontSize": 11,
                       "fontWeight": "800",
@@ -3003,7 +3094,7 @@
                       "fill": "#1E3A8A",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Дешевший інференс · менша латентність · шлях до on-device",
+                      "content": "Дешевший інференс · менша затримка · шлях до роботи на пристрої",
                       "lineHeight": 1.4,
                       "fontFamily": "Inter",
                       "fontSize": 12,
@@ -3054,7 +3145,7 @@
                       "fill": "#475569",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "VLM-інференс — головна змінна вартості pipeline. Дистиляція знижує її без зміни архітектури.",
+                      "content": "VLM-інференс — головна змінна вартості конвеєра. Дистиляція знижує її без зміни архітектури.",
                       "lineHeight": 1.55,
                       "fontFamily": "Inter",
                       "fontSize": 13,
@@ -3085,7 +3176,7 @@
                       "fill": "#475569",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Не загальний VQA — лише підготовка тексту до озвучення (skipping, normalization, emotion tags).",
+                      "content": "Не загальний VQA — лише підготовка тексту до озвучення: пропуск блоків, нормалізація, мітки емоцій.",
                       "lineHeight": 1.55,
                       "fontFamily": "Inter",
                       "fontSize": 13,
@@ -3105,7 +3196,7 @@
                       "type": "text",
                       "id": "SKgCv",
                       "fill": "#0F172A",
-                      "content": "Готовність до on-device",
+                      "content": "Готовність до роботи на пристрої",
                       "fontFamily": "Inter",
                       "fontSize": 15,
                       "fontWeight": "700"
@@ -3116,7 +3207,7 @@
                       "fill": "#475569",
                       "textGrowth": "fixed-width",
                       "width": "fill_container",
-                      "content": "Інтерфейс VLM-етапу зафіксований у промпті та tool schema: заміна моделі не потребує змін клієнта.",
+                      "content": "Інтерфейс VLM-етапу зафіксований у промпті та схемі інструмента: заміна моделі не потребує змін клієнта.",
                       "lineHeight": 1.55,
                       "fontFamily": "Inter",
                       "fontSize": 13,
@@ -3132,10 +3223,560 @@
     },
     {
       "type": "frame",
-      "id": "LzV7S",
+      "id": "r7QO4P",
       "x": 13800,
       "y": 0,
-      "name": "Slide 11 — Conclusions",
+      "name": "Slide 11 — Model Metrics",
+      "clip": true,
+      "width": 1280,
+      "height": 720,
+      "fill": "#FFFFFF",
+      "layout": "vertical",
+      "children": [
+        {
+          "type": "rectangle",
+          "id": "TMN1Q",
+          "name": "topBar11m",
+          "fill": "#1E40AF",
+          "width": "fill_container",
+          "height": 6
+        },
+        {
+          "type": "frame",
+          "id": "owkIg",
+          "name": "header11m",
+          "width": "fill_container",
+          "fill": "#FFFFFF",
+          "layout": "vertical",
+          "gap": 6,
+          "padding": [
+            44,
+            80,
+            28,
+            80
+          ],
+          "children": [
+            {
+              "type": "text",
+              "id": "r7RG3O",
+              "name": "Section label",
+              "fill": "#1E40AF",
+              "content": "11 · МЕТРИКИ ВИБОРУ МОДЕЛІ",
+              "fontFamily": "Inter",
+              "fontSize": 13,
+              "fontWeight": "700",
+              "letterSpacing": 1.6
+            },
+            {
+              "type": "text",
+              "id": "noUJg",
+              "name": "Slide title",
+              "fill": "#0F172A",
+              "textGrowth": "fixed-width",
+              "width": "fill_container",
+              "content": "Student близький до Sonnet у критичних місцях і дешевший по API",
+              "lineHeight": 1.25,
+              "fontFamily": "Inter",
+              "fontSize": 30,
+              "fontWeight": "700"
+            }
+          ]
+        },
+        {
+          "type": "rectangle",
+          "id": "YcVKm",
+          "name": "divider11m",
+          "fill": "#E2E8F0",
+          "width": "fill_container",
+          "height": 1
+        },
+        {
+          "type": "frame",
+          "id": "Byu8f",
+          "name": "body11m final",
+          "width": "fill_container",
+          "height": "fill_container",
+          "layout": "vertical",
+          "gap": 18,
+          "padding": [
+            28,
+            80,
+            34,
+            80
+          ],
+          "children": [
+            {
+              "type": "frame",
+              "id": "Hmf0j",
+              "name": "Model summary",
+              "width": "fill_container",
+              "gap": 22,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "e6Dwd",
+                  "name": "Student model card",
+                  "width": "fill_container",
+                  "height": 122,
+                  "fill": "#F8FAFC",
+                  "cornerRadius": 14,
+                  "stroke": "#CBD5E1",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    18,
+                    22
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "fe2sL",
+                      "name": "Student label",
+                      "fill": "#1E40AF",
+                      "content": "STUDENT-МОДЕЛЬ",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "800",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "kMuFS",
+                      "name": "Student title",
+                      "fill": "#0F172A",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Gemma 4 12B multimodal + LoRA/QLoRA",
+                      "lineHeight": 1.15,
+                      "fontFamily": "Inter",
+                      "fontSize": 21,
+                      "fontWeight": "800"
+                    },
+                    {
+                      "type": "text",
+                      "id": "g3e0UB",
+                      "name": "Student desc",
+                      "fill": "#475569",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Локальна модель навчається від Sonnet/teacher reference і потім генерує VlmPageResult без зовнішнього VLM-запиту.",
+                      "lineHeight": 1.35,
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "q4Jkd1",
+                  "name": "API cost card",
+                  "width": 360,
+                  "height": 122,
+                  "fill": "#1E40AF",
+                  "cornerRadius": 14,
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "raTWO",
+                      "name": "API label",
+                      "fill": "#BFDBFE",
+                      "content": "API-ЕКОНОМІЯ",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "800",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "u8Qiq",
+                      "name": "API price",
+                      "fill": "#FFFFFF",
+                      "content": "$3/M in + $15/M out",
+                      "fontFamily": "Inter",
+                      "fontSize": 24,
+                      "fontWeight": "800",
+                      "letterSpacing": -0.5
+                    },
+                    {
+                      "type": "text",
+                      "id": "wGN8E",
+                      "name": "API note",
+                      "fill": "#DBEAFE",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Sonnet pricing. Student після навчання: $0 зовнішніх VLM API-запитів на сторінку*",
+                      "lineHeight": 1.25,
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "text",
+              "id": "Lntv7",
+              "name": "Metrics title",
+              "fill": "#1E40AF",
+              "content": "Якість student відносно Sonnet/teacher reference",
+              "fontFamily": "Inter",
+              "fontSize": 11,
+              "fontWeight": "800",
+              "letterSpacing": 2
+            },
+            {
+              "type": "frame",
+              "id": "lGUcB",
+              "name": "Student KPI cards",
+              "width": "fill_container",
+              "gap": 16,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "d4en3",
+                  "name": "KPI main",
+                  "width": "fill_container",
+                  "height": 148,
+                  "fill": "#1E40AF",
+                  "cornerRadius": 14,
+                  "stroke": "#1E40AF",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    18,
+                    18,
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "F99CI",
+                      "name": "KPI main value",
+                      "fill": "#FFFFFF",
+                      "content": "0.893",
+                      "fontFamily": "Inter",
+                      "fontSize": 40,
+                      "fontWeight": "800",
+                      "letterSpacing": -1
+                    },
+                    {
+                      "type": "text",
+                      "id": "ebndI",
+                      "name": "KPI main label",
+                      "fill": "#DBEAFE",
+                      "content": "main content F1",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "HSzUD",
+                      "name": "KPI main desc",
+                      "fill": "#DBEAFE",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "головне для аудіо: що читати, а що пропускати",
+                      "lineHeight": 1.3,
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "yh2iv",
+                  "name": "KPI ocr",
+                  "width": "fill_container",
+                  "height": 148,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    18,
+                    18,
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "bXtFN",
+                      "name": "KPI ocr value",
+                      "fill": "#0F172A",
+                      "content": "0.989",
+                      "fontFamily": "Inter",
+                      "fontSize": 40,
+                      "fontWeight": "800",
+                      "letterSpacing": -1
+                    },
+                    {
+                      "type": "text",
+                      "id": "fZC6A",
+                      "name": "KPI ocr label",
+                      "fill": "#1E40AF",
+                      "content": "OCR id F1",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "yEoVj",
+                      "name": "KPI ocr desc",
+                      "fill": "#64748B",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "майже не губить прив'язку до OCR-блоків сторінки",
+                      "lineHeight": 1.3,
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ujSiB",
+                  "name": "KPI type",
+                  "width": "fill_container",
+                  "height": 148,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    18,
+                    18,
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Twqbw",
+                      "name": "KPI type value",
+                      "fill": "#0F172A",
+                      "content": "0.703",
+                      "fontFamily": "Inter",
+                      "fontSize": 40,
+                      "fontWeight": "800",
+                      "letterSpacing": -1
+                    },
+                    {
+                      "type": "text",
+                      "id": "T6VvW",
+                      "name": "KPI type label",
+                      "fill": "#1E40AF",
+                      "content": "block type F1",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "bJsF3",
+                      "name": "KPI type desc",
+                      "fill": "#64748B",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "слабше місце: типи блоків ще потребують покращення",
+                      "lineHeight": 1.3,
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "dxXFL",
+                  "name": "KPI text",
+                  "width": "fill_container",
+                  "height": 148,
+                  "fill": "#FFFFFF",
+                  "cornerRadius": 14,
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 6,
+                  "padding": [
+                    18,
+                    18,
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "jO2yt",
+                      "name": "KPI text value",
+                      "fill": "#0F172A",
+                      "content": "0.657",
+                      "fontFamily": "Inter",
+                      "fontSize": 40,
+                      "fontWeight": "800",
+                      "letterSpacing": -1
+                    },
+                    {
+                      "type": "text",
+                      "id": "Ho0cN",
+                      "name": "KPI text label",
+                      "fill": "#1E40AF",
+                      "content": "text similarity",
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "800",
+                      "letterSpacing": 1
+                    },
+                    {
+                      "type": "text",
+                      "id": "VrSsA",
+                      "name": "KPI text desc",
+                      "fill": "#64748B",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "наскільки близький текст після вирівнювання блоків",
+                      "lineHeight": 1.3,
+                      "fontFamily": "Inter",
+                      "fontSize": 12,
+                      "fontWeight": "normal"
+                    }
+                  ]
+                }
+              ]
+            },
+            {
+              "type": "frame",
+              "id": "sPHQ2",
+              "name": "Metrics explanation row",
+              "width": "fill_container",
+              "height": "fill_container",
+              "gap": 22,
+              "children": [
+                {
+                  "type": "frame",
+                  "id": "JAjAG",
+                  "name": "How metrics card",
+                  "width": "fill_container",
+                  "fill": "#EFF6FF",
+                  "cornerRadius": 14,
+                  "stroke": "#BFDBFE",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "Q5C24",
+                      "name": "How label",
+                      "fill": "#1E40AF",
+                      "content": "ЯК ЦЕ РАХУЄТЬСЯ",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "800",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "inYc4",
+                      "name": "How text",
+                      "fill": "#0F172A",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Student генерує результат на 32 test-сторінках. Його блоки вирівнюються з teacher reference; F1 показує баланс точності й повноти збігу.",
+                      "lineHeight": 1.35,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    }
+                  ]
+                },
+                {
+                  "type": "frame",
+                  "id": "ucAff",
+                  "name": "Why worth card",
+                  "width": "fill_container",
+                  "fill": "#F8FAFC",
+                  "cornerRadius": 14,
+                  "stroke": "#E2E8F0",
+                  "strokeWidth": 1,
+                  "strokeAlignment": "inner",
+                  "layout": "vertical",
+                  "gap": 8,
+                  "padding": [
+                    16,
+                    18
+                  ],
+                  "children": [
+                    {
+                      "type": "text",
+                      "id": "kA2IS",
+                      "name": "Why label",
+                      "fill": "#1E40AF",
+                      "content": "ЧОМУ ЦЕ ВАРТО ТОГО",
+                      "fontFamily": "Inter",
+                      "fontSize": 11,
+                      "fontWeight": "800",
+                      "letterSpacing": 2
+                    },
+                    {
+                      "type": "text",
+                      "id": "HvzPm",
+                      "name": "Why text",
+                      "fill": "#0F172A",
+                      "textGrowth": "fixed-width",
+                      "width": "fill_container",
+                      "content": "Модель не ідеально повторює Sonnet, але близька в критичних для TTS місцях: main content і OCR-прив'язка. Саме це дає можливість прибрати постійні API-витрати.",
+                      "lineHeight": 1.35,
+                      "fontFamily": "Inter",
+                      "fontSize": 13,
+                      "fontWeight": "700"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "frame",
+      "id": "LzV7S",
+      "x": 15180,
+      "y": 0,
+      "name": "Slide 12 — Conclusions",
       "width": 1280,
       "height": 720,
       "fill": "#FFFFFF",
@@ -3168,7 +3809,7 @@
               "type": "text",
               "id": "tDqbs",
               "fill": "#1E40AF",
-              "content": "11 · ВИСНОВКИ",
+              "content": "12 · ВИСНОВКИ",
               "fontFamily": "Inter",
               "fontSize": 13,
               "fontWeight": "700",
@@ -3178,7 +3819,7 @@
               "type": "text",
               "id": "YUXfm",
               "fill": "#0F172A",
-              "content": "Що зроблено і як це досягло поставленої мети",
+              "content": "Що зроблено і як це допомогло досягти поставленої мети",
               "fontFamily": "Inter",
               "fontSize": 30,
               "fontWeight": "700"
@@ -3224,12 +3865,12 @@
                   "gap": 14,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "fIsgC",
                       "width": 22,
                       "height": 22,
-                      "iconFontName": "circle-check",
-                      "iconFontFamily": "lucide",
+                      "icon": "circle-check",
+                      "library": "lucide",
                       "fill": "#16A34A"
                     },
                     {
@@ -3244,7 +3885,7 @@
                           "type": "text",
                           "id": "YSEfy",
                           "fill": "#0F172A",
-                          "content": "Спроектована pipeline-архітектура з VLM як семантичним ядром",
+                          "content": "Спроєктована конвеєрна архітектура з VLM як семантичним ядром",
                           "fontFamily": "Inter",
                           "fontSize": 15,
                           "fontWeight": "700"
@@ -3255,7 +3896,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "VLM перетворює сторінку у TTS-готовий текст з emit_blocks tool; OCR і TTS — спеціалізовані інструменти по краях.",
+                          "content": "VLM перетворює сторінку у TTS-готовий текст через інструмент emit_blocks; OCR і TTS — спеціалізовані інструменти по краях.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 13,
@@ -3273,12 +3914,12 @@
                   "gap": 14,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "xLA6r",
                       "width": 22,
                       "height": 22,
-                      "iconFontName": "circle-check",
-                      "iconFontFamily": "lucide",
+                      "icon": "circle-check",
+                      "library": "lucide",
                       "fill": "#16A34A"
                     },
                     {
@@ -3304,7 +3945,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Streaming-обробка з concurrency, retry+backoff, cancellation; персистентний store; фонове відтворення.",
+                          "content": "Потокова обробка з паралельністю, повторними спробами та скасуванням; персистентне сховище; фонове відтворення.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 13,
@@ -3322,12 +3963,12 @@
                   "gap": 14,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "r4Slf",
                       "width": 22,
                       "height": 22,
-                      "iconFontName": "circle-check",
-                      "iconFontFamily": "lucide",
+                      "icon": "circle-check",
+                      "library": "lucide",
                       "fill": "#16A34A"
                     },
                     {
@@ -3371,12 +4012,12 @@
                   "gap": 14,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "UpgRI",
                       "width": 22,
                       "height": 22,
-                      "iconFontName": "circle-check",
-                      "iconFontFamily": "lucide",
+                      "icon": "circle-check",
+                      "library": "lucide",
                       "fill": "#16A34A"
                     },
                     {
@@ -3391,7 +4032,7 @@
                           "type": "text",
                           "id": "VXF12",
                           "fill": "#0F172A",
-                          "content": "Реалізовано UI: бібліотека, плеєр з двома режимами, outline, sleep-timer, налаштування",
+                          "content": "Реалізовано інтерфейс: бібліотека, плеєр з двома режимами, зміст, таймер сну, налаштування",
                           "fontFamily": "Inter",
                           "fontSize": 15,
                           "fontWeight": "700"
@@ -3402,7 +4043,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Outline отримується з embedded PDF (pdf.js getOutline) — без додаткової обробки VLM.",
+                          "content": "Зміст отримується з вбудованого PDF (pdf.js getOutline) — без додаткової обробки VLM.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 13,
@@ -3420,12 +4061,12 @@
                   "gap": 14,
                   "children": [
                     {
-                      "type": "icon_font",
+                      "type": "icon",
                       "id": "YNVRm",
                       "width": 22,
                       "height": 22,
-                      "iconFontName": "circle-check",
-                      "iconFontFamily": "lucide",
+                      "icon": "circle-check",
+                      "library": "lucide",
                       "fill": "#16A34A"
                     },
                     {
@@ -3440,7 +4081,7 @@
                           "type": "text",
                           "id": "Z4GvB",
                           "fill": "#0F172A",
-                          "content": "Спроектовано схему дистиляції teacher-student",
+                          "content": "Спроєктовано схему дистиляції teacher–student",
                           "fontFamily": "Inter",
                           "fontSize": 15,
                           "fontWeight": "700"
@@ -3451,7 +4092,7 @@
                           "fill": "#475569",
                           "textGrowth": "fixed-width",
                           "width": "fill_container",
-                          "content": "Шлях від serverside frontier-VLM до спеціалізованої моделі, та далі — до on-device інференсу.",
+                          "content": "Шлях від серверної великої VLM до спеціалізованої моделі, а далі — до інференсу на пристрої.",
                           "lineHeight": 1.5,
                           "fontFamily": "Inter",
                           "fontSize": 13,
