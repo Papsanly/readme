@@ -36,6 +36,14 @@ const PREFETCH_LOOKAHEAD = 2;
 /** Status updates from `expo-audio` come every 500 ms by default — quick enough for a scrubber. */
 const PLAYER_UPDATE_INTERVAL_MS = 250;
 
+/**
+ * Give native playback commands time to settle before treating an opposite
+ * status update as an external lock-screen / system command. `expo-audio` can
+ * deliver stale `playing`/`paused` statuses right after we call `play()` or
+ * `pause()`; accepting those immediately creates a play/pause feedback loop.
+ */
+const PLAYBACK_COMMAND_TIMEOUT_MS = 2000;
+
 export type UseAudioEngineResult = {
   /** Current block's audio file is loaded and ready to play. */
   isReady: boolean;
@@ -236,6 +244,10 @@ function fileExists(uri: string): boolean {
   }
 }
 
+function isNativePaused(status: AudioStatus): boolean {
+  return status.isLoaded && !status.isBuffering && status.timeControlStatus === 'paused';
+}
+
 function artworkUriForBook(book: Book): string | undefined {
   const candidates = [book.coverUri, paths.bookCover(book.id), paths.bookPage(book.id, 1)];
   for (const uri of candidates) {
@@ -312,6 +324,10 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
   const prefetchAbortRef = useRef<AbortController | null>(null);
   const lockScreenActiveRef = useRef(false);
   const ignoreNativePauseUntilReadyRef = useRef(false);
+  const pendingPlaybackCommandRef = useRef<{
+    desiredPlaying: boolean;
+    startedAt: number;
+  } | null>(null);
   const bookIdRef = useRef(bookId);
   bookIdRef.current = bookId;
   const lastTtsSpeedRef = useRef<number>(clampTtsSpeed(speed));
@@ -389,17 +405,71 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [blocks, currentBlock, currentBlockId, positionSec, speed, durationsTick, knownPageTotal]);
 
-  function syncNativePlaybackState(status: AudioStatus): void {
-    const state = usePlayerStore.getState();
-    if (state.currentBookId !== bookIdRef.current) return;
-    if (status.playing) {
-      if (!state.isPlaying) state.play();
-      return;
-    }
-    if (ignoreNativePauseUntilReadyRef.current) return;
-    if (!status.isLoaded || status.isBuffering || status.timeControlStatus !== 'paused') return;
-    if (state.isPlaying) state.pause();
-  }
+  const markPlaybackCommand = useCallback((desiredPlaying: boolean): void => {
+    pendingPlaybackCommandRef.current = {
+      desiredPlaying,
+      startedAt: Date.now()
+    };
+  }, []);
+
+  const syncNativePlaybackState = useCallback(
+    (status: AudioStatus): void => {
+      const state = usePlayerStore.getState();
+      if (state.currentBookId !== bookIdRef.current) return;
+
+      const nativePaused = isNativePaused(status);
+      const pending = pendingPlaybackCommandRef.current;
+      if (pending) {
+        const timedOut = Date.now() - pending.startedAt > PLAYBACK_COMMAND_TIMEOUT_MS;
+
+        if (pending.desiredPlaying) {
+          if (status.playing) {
+            pendingPlaybackCommandRef.current = null;
+            return;
+          }
+          if (nativePaused && !timedOut) {
+            return;
+          }
+        } else {
+          if (nativePaused) {
+            pendingPlaybackCommandRef.current = null;
+            return;
+          }
+          if (status.playing) {
+            if (!timedOut) {
+              return;
+            }
+            // The app state says "paused" but native audio still reports
+            // "playing" after the settle window. Enforce the user intent instead
+            // of flipping the UI back to Play/Pause again.
+            try {
+              playerRef.current?.pause();
+              markPlaybackCommand(false);
+            } catch (err) {
+              console.warn(
+                '[player] failed to enforce pause after stale native playing status',
+                err
+              );
+            }
+            return;
+          }
+        }
+
+        if (timedOut) {
+          pendingPlaybackCommandRef.current = null;
+        }
+      }
+
+      if (status.playing) {
+        if (!state.isPlaying) state.play();
+        return;
+      }
+      if (ignoreNativePauseUntilReadyRef.current) return;
+      if (!nativePaused) return;
+      if (state.isPlaying) state.pause();
+    },
+    [markPlaybackCommand]
+  );
 
   // ----- Player lifecycle: create once, release on unmount ---------------
   useEffect(() => {
@@ -431,6 +501,15 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     return () => {
       subscription.remove();
       try {
+        player.pause();
+      } catch (err) {
+        console.warn('[player] failed to pause audio player before release', err);
+      }
+      const state = usePlayerStore.getState();
+      if (state.currentBookId === bookIdRef.current && state.isPlaying) {
+        state.pause();
+      }
+      try {
         player.clearLockScreenControls();
       } catch (err) {
         console.warn('[player] failed to clear lock screen controls', err);
@@ -445,7 +524,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     };
     // The player is created once per Player-screen mount; the bookId is read via
     // refs/state inside event handlers, so we don't recreate on bookId changes.
-  }, []);
+  }, [syncNativePlaybackState]);
 
   useEffect(() => {
     const player = playerRef.current;
@@ -649,6 +728,7 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
 
         if (usePlayerStore.getState().isPlaying) {
           try {
+            markPlaybackCommand(true);
             player.play();
           } catch (err) {
             console.warn('[player] play() failed', err);
@@ -691,12 +771,13 @@ export function useAudioEngine(bookId: string): UseAudioEngineResult {
     if (!player) return;
     if (!isReady) return;
     try {
+      markPlaybackCommand(isPlaying);
       if (isPlaying) player.play();
       else player.pause();
     } catch (err) {
       console.warn('[player] play/pause toggle failed', err);
     }
-  }, [isPlaying, isReady]);
+  }, [isPlaying, isReady, markPlaybackCommand]);
 
   // ----- Persist progress periodically while playing ---------------------
   useEffect(() => {
